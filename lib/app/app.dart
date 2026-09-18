@@ -1,31 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
-/// Root widget of the application.
-///
-/// Phase 2 turns this into a MaterialApp.router wrapped in providers, with
-/// AlertNotificationHost installed in the router's builder so alert
-/// notifications sit above the whole navigation shell.
-class App extends StatelessWidget {
+import '../core/theme/app_theme.dart';
+import 'router.dart';
+
+// TODO: wrap the routed child in AlertNotificationHost via builder (phase 9).
+class App extends StatefulWidget {
   const App({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      title: 'Trading App',
-      home: BootstrapPlaceholderPage(),
-    );
-  }
+  State<App> createState() => _AppState();
 }
 
-/// Placeholder home screen, replaced by the navigation shell in phase 2.
-class BootstrapPlaceholderPage extends StatelessWidget {
-  const BootstrapPlaceholderPage({super.key});
+class _AppState extends State<App> {
+  late final GoRouter _router = createRouter();
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Trading App')),
-      body: const Center(child: Text('Bootstrap complete')),
+    return MaterialApp.router(
+      title: 'Trading App',
+      theme: AppTheme.light,
+      routerConfig: _router,
     );
   }
 }

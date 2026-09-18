@@ -683,7 +683,7 @@ class AppConfig {
 }
 ```
 
-`AppDependencies` picks `FakeTransport` when `wsUrl` is empty and `WebSocketChannelTransport` otherwise, so running offline or against a real endpoint is a launch-argument change. If auth turns out to be required (§21), the token arrives the same way and is never logged or persisted. README documents the run command.
+`AppDependencies` picks `FakeTransport` when `wsUrl` is empty and `WebSocketChannelTransport` otherwise, so running offline or against a real endpoint is a launch-argument change. If auth turns out to be required (§21), the token arrives the same way and is never logged or persisted.
 
 ---
 
@@ -753,7 +753,7 @@ Priority: domain logic first, then socket behaviour, then Cubits, then a few wid
 
 **Dev:** `flutter_test`, `bloc_test`, `mocktail`, `fake_async`, `build_runner`, `hive_ce_generator`, `flutter_lints`.
 
-`hive_ce` is the maintained community continuation of Hive 2 (original `hive` is unmaintained, the Isar-based Hive 4 line was abandoned). Same API, plus the `GenerateAdapters` annotation that §8.2 relies on. A dependency-hygiene choice, noted in the README.
+`hive_ce` is the maintained community continuation of Hive 2 (original `hive` is unmaintained, the Isar-based Hive 4 line was abandoned). Same API, plus the `GenerateAdapters` annotation that §8.2 relies on. A dependency-hygiene choice, worth mentioning in `NOTES.md`.
 
 **Removed after the phase-1 review:** `decimal` — §4.1 uses `double`.
 
@@ -769,17 +769,18 @@ Twelve phases. Each has one goal, leaves the app runnable, and can be reviewed o
 
 ### Phase 1 — Project setup ✅ DONE
 
-Dependencies, extra lints, `assets/instruments.json` registered, counter demo removed, `bootstrap()` with `runZonedGuarded` + `FlutterError.onError`, placeholder `App`, a **temporary** bootstrap smoke test (§16), README skeleton. `flutter analyze` clean, `flutter test` green.
+Dependencies, extra lints, `assets/instruments.json` registered, counter demo removed, `bootstrap()` with `runZonedGuarded` + `FlutterError.onError`, placeholder `App`, a **temporary** bootstrap smoke test (§16). `flutter analyze` clean, `flutter test` green.
 
 **Follow-up from this review:** `decimal` removed from `pubspec.yaml` (§4.1 uses `double`). ✅
 
 ---
 
-### Phase 2 — Core foundation: theme, config, errors, routing
+### Phase 2 — Core foundation: theme, config, errors, routing ✅ DONE
 
 - **Goal:** the skeleton every later phase plugs into.
-- **Files:** `core/theme/*`, `core/app_config.dart`, `core/errors.dart`, `app/router.dart`, `app/widgets/app_shell.dart`, `app/app_dependencies.dart`, `app/app.dart`.
-- **Tasks:** design tokens with placeholder values; `AppException` + `logError` (and point `bootstrap`'s handlers at it); `AppConfig`; `go_router` with `StatefulShellRoute.indexedStack`, `AppShell` with the three-tab `NavigationBar`, and placeholder pages for all five screens; `AppDependencies` shell.
+- **Files:** `core/theme/*`, `core/app_config.dart`, `core/errors.dart`, `app/router.dart`, `app/widgets/app_shell.dart`, `app/widgets/placeholder_page.dart`, `app/app.dart`.
+- **Tasks:** design tokens with placeholder values; `AppException` + `logError` (and point `bootstrap`'s handlers at it); `AppConfig`; `go_router` with `StatefulShellRoute.indexedStack`, `AppShell` with the three-tab `NavigationBar`, and a single reusable `PlaceholderPage` behind all five routes.
+- **Deviation:** `AppDependencies` moved to Phase 3. Nothing to compose yet — an empty class now would be an abstraction without a current reason (§23.2). It is created together with the first real dependency, `InstrumentRepository`.
 - **Result:** themed app, working bottom navigation, all five routes reachable.
 - **Tests:** none new — the screens are still placeholders, so navigation is verified by hand here. The tab-switching and state-preservation widget test lands in Phase 9, once all three tabs show real content.
 - **Pitfalls:** inventing tokens nobody uses yet; logic creeping into theme files; forgetting `parentNavigatorKey` on `/alerts/create`, which would leave the nav bar visible over the form.
@@ -789,8 +790,8 @@ Dependencies, extra lints, `assets/instruments.json` registered, counter demo re
 ### Phase 3 — Instruments: model, repository, list screen
 
 - **Goal:** the Quotes tab renders the real instrument list (no live prices yet).
-- **Files:** `features/instruments/**`.
-- **Tasks:** `Instrument`; `InstrumentRepository` reading and decoding the asset (throws `AppException` on malformed JSON, caches the parsed list); `InstrumentsCubit` + state (loading/success/failure/empty); `InstrumentsPage` with `ListView.builder`, `ValueKey(symbol)`, and `—` placeholders for Bid/Ask; `InstrumentTile`.
+- **Files:** `features/instruments/**`, `app/app_dependencies.dart`, `app/router.dart`.
+- **Tasks:** `Instrument`; `InstrumentRepository` reading and decoding the asset (throws `AppException` on malformed JSON, caches the parsed list); `AppDependencies` (created here, holding its first real dependency) and the provider wiring in `App`; `InstrumentsCubit` + state (loading/success/failure/empty); `InstrumentsPage` with `ListView.builder`, `ValueKey(symbol)`, and `—` placeholders for Bid/Ask; `InstrumentTile`; swap the `/quotes` placeholder for the real page.
 - **Result:** a scrollable real list with empty/error/retry states.
 - **Tests:** parsing valid JSON; unknown `contractType` preserved, not dropped; malformed JSON → `AppException`; empty array → empty list; Cubit load success/failure/empty.
 - **Pitfalls:** inventing meanings for `contractType`; forgetting `TestWidgetsFlutterBinding` when a test touches `rootBundle`.
@@ -884,16 +885,19 @@ Dependencies, extra lints, `assets/instruments.json` registered, counter demo re
 
 ---
 
-### Phase 12 — Cleanup, README, NOTES
+### Phase 12 — Cleanup and NOTES
+
+> `README.md` is written by the developer, not generated. No phase edits it.
+
 
 - **Goal:** a repository a reviewer can understand in ten minutes.
 - **Tasks:**
-  1. `README.md`: how to run (including `--dart-define`), how to test, structure overview, screenshots.
+  1. Hand over the facts the developer needs for `README.md`: the exact run and test commands (including every `--dart-define`), the current project structure, and which defaults apply when `WS_URL` is unset.
   2. `NOTES.md`: architecture summary, key decisions and their rationale (§19), known limitations (§7.6, §14, §21), **how AI assistance was used** — which parts were AI-generated, how they were reviewed and what was changed by hand — and what would come next with more time.
   3. **Retire the temporary bootstrap smoke test** in `test/widget_test.dart` — delete it if the real screen tests already cover app startup, or rewrite it against the actual initial screen. Then review the widget-test set in §16 against the task requirements and fill any remaining gap.
   4. `flutter analyze` clean, `dart format .`, remove dead code, TODOs and debug prints.
   5. Re-verify §24.
-- **Pitfalls:** leaving the fake feed as the undocumented default; committing env files; a README missing the run arguments.
+- **Pitfalls:** leaving the fake feed as an unflagged default; committing env files; handing over run instructions that omit a required `--dart-define`.
 
 ---
 
@@ -998,6 +1002,7 @@ These govern every phase. When the plan and these rules disagree, these win.
 6. **Measure before optimising.** Correct real-time updates first; optimisations only with a number attached, recorded in `NOTES.md`.
 7. **Keep UI and design tokens separate from business logic**, so the final design lands in the theme layer and widgets, not in the domain.
 8. **Review AI-generated code by hand and simplify it.** Generated code drifts toward extra layers; delete what does not earn its place. The plan itself can change whenever reality shows a simpler path — record the change and the reason.
+9. **Write code that explains itself; keep comments out of it.** No doc comments, no narration of what a class does — naming and structure carry that. The only comments allowed are short `TODO`s for genuinely deferred work (a crash reporter, a placeholder to delete, values awaiting the Figma design) and the rare one-liner stating a constraint the code cannot show. Rationale belongs in this document and in `NOTES.md`, not in the source.
 
 ---
 
@@ -1020,5 +1025,5 @@ These govern every phase. When the plan and these rules disagree, these win.
 - [ ] Design tokens live in `core/theme/`; feature widgets contain no hardcoded colours or text styles, and Phase 11 can be done without touching `domain/` or `data/`. *(§11)*
 - [ ] No credentials or endpoints hardcoded. *(§15)*
 - [ ] No silently swallowed exceptions. *(§12)*
-- [ ] `README.md` and `NOTES.md` exist, and `NOTES.md` documents AI usage and key decisions. *(Phase 12)*
+- [ ] `NOTES.md` exists and documents AI usage and key decisions. `README.md` is the developer's to write. *(Phase 12)*
 - [ ] `flutter analyze` clean, `flutter test` green.
