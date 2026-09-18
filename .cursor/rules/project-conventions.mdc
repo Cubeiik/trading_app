@@ -1,0 +1,28 @@
+---
+description: Working conventions for this project (tests, comments, README)
+alwaysApply: true
+---
+
+# Project conventions
+
+## Tests are paused
+
+Do **not** write, extend or update any tests until the user explicitly asks for them again.
+This applies to unit, bloc and widget tests alike, even when `IMPLEMENTATION_PLAN.md`
+lists tests as part of a phase — skip that part of the phase and say so in the summary.
+
+Existing tests under `test/` stay as they are. If a change makes one fail to compile,
+report it instead of rewriting the test.
+
+## Comments
+
+Code explains itself through naming and structure. The only comments allowed:
+
+- short `TODO`s for genuinely deferred work — `// TODO: wire up a crash reporter.`
+- a rare one-liner stating a constraint the code cannot show.
+
+No doc comments, no narration of what a class or method does.
+
+## README
+
+Never edit `README.md`. The user writes it at the end.

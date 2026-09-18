@@ -689,6 +689,8 @@ class AppConfig {
 
 ## 16. Testing strategy
 
+> **Paused as of Phase 4.** No new tests are written until the developer says otherwise. The per-phase test lists below stay as the intended target set, but each phase is delivered without them and notes the gap. The tests already written in Phase 3 (`InstrumentRepository`, `InstrumentsCubit`, the bootstrap smoke test) remain in place. See `.cursor/rules/project-conventions.mdc`.
+
 Priority: domain logic first, then socket behaviour, then Cubits, then a few widget tests for real user flows. Tools: `flutter_test`, `bloc_test`, `mocktail`, `fake_async`. No coverage target — tests exist to prove behaviour, not to move a number, and they assert on behaviour rather than on implementation details.
 
 **Tests are written with the feature, never ahead of it.** Each phase adds tests for the behaviour that phase introduces, so every test has a real implementation to assert against. Do not write widget tests for screens that do not exist yet — a test against a placeholder only has to be rewritten later, and it hides which behaviour is genuinely covered.
@@ -763,7 +765,7 @@ Priority: domain logic first, then socket behaviour, then Cubits, then a few wid
 
 ## 18. Implementation phases
 
-Twelve phases. Each has one goal, leaves the app runnable, and can be reviewed on its own. Workflow per phase: implement → manual review → refactor → run tests → next.
+Twelve phases. Each has one goal, leaves the app runnable, and can be reviewed on its own. Workflow per phase: implement → manual review → refactor → `flutter analyze` → next. The **Tests** line in each phase below is on hold (§16) and is skipped until the developer lifts the pause.
 
 ---
 
@@ -787,7 +789,7 @@ Dependencies, extra lints, `assets/instruments.json` registered, counter demo re
 
 ---
 
-### Phase 3 — Instruments: model, repository, list screen
+### Phase 3 — Instruments: model, repository, list screen ✅ DONE
 
 - **Goal:** the Quotes tab renders the real instrument list (no live prices yet).
 - **Files:** `features/instruments/**`, `app/app_dependencies.dart`, `app/router.dart`.
@@ -795,6 +797,7 @@ Dependencies, extra lints, `assets/instruments.json` registered, counter demo re
 - **Result:** a scrollable real list with empty/error/retry states.
 - **Tests:** parsing valid JSON; unknown `contractType` preserved, not dropped; malformed JSON → `AppException`; empty array → empty list; Cubit load success/failure/empty.
 - **Pitfalls:** inventing meanings for `contractType`; forgetting `TestWidgetsFlutterBinding` when a test touches `rootBundle`.
+- **Deviations:** JSON decoding sits in the data layer (a private function in `InstrumentRepository`), not as a `fromJson` on the model, so the domain type stays free of protocol concerns — no DTO or mapper was added for it. Tests inject a mocked `AssetBundle` (`test/helpers/mock_asset_bundle.dart`) instead of reaching for `rootBundle`, which also makes the cache assertion possible via `verify`. The bootstrap smoke test now builds `App` with that mocked bundle, since `App` requires `AppDependencies` from this phase on. A wrong field type (`"contractType": "zero"`) is covered alongside malformed JSON, as both surface as `AppException`.
 
 ---
 

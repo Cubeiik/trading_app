@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 
 import 'app/app.dart';
+import 'app/app_dependencies.dart';
 import 'core/errors.dart';
 
 Future<void> bootstrap() async {
@@ -14,6 +15,6 @@ Future<void> bootstrap() async {
       logError(details.exception, details.stack, 'FlutterError');
     };
 
-    runApp(const App());
+    runApp(App(dependencies: AppDependencies.production()));
   }, (error, stackTrace) => logError(error, stackTrace, 'Uncaught zone error'));
 }

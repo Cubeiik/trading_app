@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/instruments/presentation/instruments_page.dart';
 import 'widgets/app_shell.dart';
 import 'widgets/placeholder_page.dart';
 
@@ -27,8 +28,7 @@ GoRouter createRouter() {
             routes: [
               GoRoute(
                 path: Routes.quotes,
-                builder: (context, state) =>
-                    const PlaceholderPage(title: 'Quotes', detail: 'Live instrument list — phase 3 and 5.'),
+                builder: (context, state) => const InstrumentsPage(),
                 routes: [
                   GoRoute(
                     path: ':symbol',
