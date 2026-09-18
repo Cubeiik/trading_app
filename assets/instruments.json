@@ -1,0 +1,22 @@
+[
+  {
+    "symbol": "AAPL.US",
+    "contractType": 0
+  },
+  {
+    "symbol": "ABB.SE",
+    "contractType": 0
+  },
+  {
+    "symbol": "ABEV.BR",
+    "contractType": 0
+  },
+  {
+    "symbol": "ADAUSD",
+    "contractType": 4
+  },
+  {
+    "symbol": "AIR.FR",
+    "contractType": 0
+  }
+]

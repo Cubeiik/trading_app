@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local configuration passed via --dart-define-from-file.
+# The committed env/*.example.json files document the expected shape.
+/env/*.json
+!/env/*.example.json
