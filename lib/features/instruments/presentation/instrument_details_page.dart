@@ -90,7 +90,6 @@ class _Details extends StatelessWidget {
         _LivePrices(symbol: instrument.symbol),
         const SizedBox(height: AppSpacing.l),
         _DetailRow(label: 'Symbol', value: instrument.symbol),
-        _DetailRow(label: 'Contract type', value: '${instrument.contractType}'),
         const SizedBox(height: AppSpacing.l),
         FilledButton(
           onPressed: () => context.push('${Routes.createAlert}?symbol=${instrument.symbol}'),

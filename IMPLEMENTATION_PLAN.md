@@ -176,14 +176,16 @@ test/                            mirrors lib/, plus test/helpers/
 Reasoning, because this is the decision a fintech reviewer will probe:
 
 - This app **displays** prices and **compares** them against thresholds. It does not sum, allocate, settle or accumulate money, which is where binary floating point actually breaks down. A `double` holds 15–17 significant digits — far more than any instrument's tick size needs.
-- The one place float error is observable is percentage maths: `200 * 1.05 == 210.00000000000003`. A target price of `210.00000000000003` would never be reached by an incoming price of exactly `210.0`, so the alert would silently never fire. This is a real bug, and it is fixed with one line at alert creation:
+- The one place float error is observable is percentage maths: `100 * (1 + 10 / 100) == 110.00000000000001`. A target price of `110.00000000000001` would never be reached by an incoming price of exactly `110.0`, so the alert would silently never fire. This is a real bug, and it is fixed with one line at alert creation:
 
 ```dart
 // Percentage targets are rounded once, at creation, so the stored threshold is
-// a clean decimal value. Without this, 200 * 1.05 = 210.00000000000003 and a
-// quote of exactly 210.0 would never cross it.
+// a clean decimal value. Without this, 100 * (1 + 10 / 100) =
+// 110.00000000000001 and a quote of exactly 110.0 would never cross it.
 double roundPrice(double value) => double.parse(value.toStringAsFixed(6));
 ```
+
+The example matters more than it looks: the figure first written here (`200 * 1.05`) happens to be **exact** in IEEE-754, so it proved nothing. Scanning every price from 100.00 to 500.00 against ±5 % and +10 % turns up a drifting target roughly every other price, which is the actual justification for rounding.
 
 - Crossing comparisons themselves need no epsilon: they compare two observed prices against a stored threshold, and any error is ~1e-13 against prices quoted to at most a few decimals.
 - **What would change the decision:** if the app ever computed portfolio values, P&L or order sizes, `double` would be wrong and the right answer would be scaled integers (minor units) or `package:decimal`. Recorded in `NOTES.md` as a known boundary.
@@ -869,7 +871,7 @@ Dependencies, extra lints, `assets/instruments.json` registered, counter demo re
 
 ---
 
-### Phase 7 — Alert domain logic
+### Phase 7 — Alert domain logic ✅ DONE
 
 - **Goal:** complete, fully tested alert logic — no UI, no persistence.
 - **Files:** `features/alerts/domain/price_alert.dart`, `alert_evaluator.dart`, `app/alert_coordinator.dart`.
@@ -877,6 +879,10 @@ Dependencies, extra lints, `assets/instruments.json` registered, counter demo re
 - **Result:** alert logic proven by tests before any UI exists.
 - **Tests:** the `AlertEvaluator` and `AlertCoordinator` lists in §16.
 - **Pitfalls:** putting `_previous` inside the evaluator (destroys statelessness and testability); `>`/`<` instead of `>=`/`<=` on the current side; bid for reference and ask for evaluation; forgetting to filter by symbol or to skip already-triggered alerts; forgetting `roundPrice` on percentage targets.
+- **Deviations:** instead of a general `copyWith`, `PriceAlert` exposes `markTriggered(price:, at:)`. `ACTIVE → TRIGGERED` is the only transition an alert has — there is no editing (§20) — so a setter-shaped `copyWith` would advertise mutations the domain forbids. `DateTime`s are stored in UTC at construction, closing the §8 local-time pitfall in the model rather than in the Hive layer. The two factories throw `ArgumentError`, not `AppException`: reaching them with a zero target or a zero percentage is a programming error, while user input is rejected by the form in Phase 9.
+- **Coordinator wiring deferred:** `AlertCoordinator` takes an `activeAlerts` callback and an `onTriggered` callback rather than an `AlertsCubit`, so it stays free of the presentation layer and is constructed in Phase 8 with `() => alertsCubit.state.activeAlerts` and `alertsCubit.onTriggered`. The temporary in-memory sink this phase originally planned was skipped — it would have been code written to be deleted one phase later. Each `onTriggered` call is wrapped in `try/catch` + `logError`, so one failing persist cannot abort the remaining alerts that crossed on the same tick.
+- **Verified without tests:** the testing pause holds, so the rules were exercised once through a throwaway script (since deleted) covering crossing up, exact-touch equality, no refire when already past the target, symbol filtering, side filtering, skipping triggered alerts, two alerts firing on one tick, the percentage target and direction for both signs, ask-side reference, and both validation throws. All passed.
+- **Plan correction found while verifying:** §4.1 justified `roundPrice` with `200 * 1.05 = 210.00000000000003`, which is false — that product is exact in IEEE-754. The rounding is still necessary; §4.1 now cites `100 * (1 + 10 / 100) = 110.00000000000001` and records how the real cases were found.
 
 ---
 

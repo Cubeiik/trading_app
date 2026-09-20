@@ -33,7 +33,9 @@ GoRouter createRouter() {
                 routes: [
                   GoRoute(
                     path: ':symbol',
-                    builder: (context, state) => InstrumentDetailsPage(symbol: state.pathParameters['symbol']!),
+                    builder: (context, state) => InstrumentDetailsPage(
+                      symbol: state.pathParameters['symbol']!,
+                    ),
                   ),
                 ],
               ),
@@ -43,7 +45,10 @@ GoRouter createRouter() {
             routes: [
               GoRoute(
                 path: Routes.alerts,
-                builder: (context, state) => const PlaceholderPage(title: 'Alerts', detail: 'Active alerts — phase 9.'),
+                builder: (context, state) => const PlaceholderPage(
+                  title: 'Alerts',
+                  detail: 'Active alerts — phase 9.',
+                ),
                 routes: [
                   GoRoute(
                     path: 'create',
@@ -64,8 +69,10 @@ GoRouter createRouter() {
             routes: [
               GoRoute(
                 path: Routes.history,
-                builder: (context, state) =>
-                    const PlaceholderPage(title: 'History', detail: 'Triggered alerts — phase 9.'),
+                builder: (context, state) => const PlaceholderPage(
+                  title: 'History',
+                  detail: 'Triggered alerts — phase 9.',
+                ),
               ),
             ],
           ),

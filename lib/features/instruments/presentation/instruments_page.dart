@@ -48,7 +48,10 @@ class _InstrumentsList extends StatelessWidget {
               itemCount: state.instruments.length,
               itemBuilder: (context, index) {
                 final instrument = state.instruments[index];
-                return InstrumentTile(key: ValueKey(instrument.symbol), instrument: instrument);
+                return InstrumentTile(
+                  key: ValueKey(instrument.symbol),
+                  instrument: instrument,
+                );
               },
             );
         }
