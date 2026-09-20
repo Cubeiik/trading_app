@@ -11,8 +11,8 @@ Do **not** write, extend or update any tests until the user explicitly asks for 
 This applies to unit, bloc and widget tests alike, even when `IMPLEMENTATION_PLAN.md`
 lists tests as part of a phase — skip that part of the phase and say so in the summary.
 
-Existing tests under `test/` stay as they are. If a change makes one fail to compile,
-report it instead of rewriting the test.
+`test/` was deleted in Phase 5 and stays deleted. Do not recreate it, not even a
+single smoke test, until the pause is lifted — then write the whole suite in one pass.
 
 ## Comments
 

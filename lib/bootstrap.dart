@@ -15,6 +15,9 @@ Future<void> bootstrap() async {
       logError(details.exception, details.stack, 'FlutterError');
     };
 
-    runApp(App(dependencies: AppDependencies.production()));
+    final dependencies = AppDependencies.production();
+    unawaited(dependencies.marketDataSocket.connect());
+
+    runApp(App(dependencies: dependencies));
   }, (error, stackTrace) => logError(error, stackTrace, 'Uncaught zone error'));
 }

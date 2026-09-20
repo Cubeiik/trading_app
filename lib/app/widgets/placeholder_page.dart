@@ -16,14 +16,18 @@ class PlaceholderPage extends StatelessWidget {
       appBar: AppBar(title: Text(title)),
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
+          padding: const EdgeInsets.all(AppSpacing.l),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(title, style: AppTextStyles.screenTitle),
               if (detail != null) ...[
-                const SizedBox(height: AppSpacing.sm),
-                Text(detail!, style: AppTextStyles.caption, textAlign: TextAlign.center),
+                const SizedBox(height: AppSpacing.s),
+                Text(
+                  detail!,
+                  style: AppTextStyles.caption,
+                  textAlign: TextAlign.center,
+                ),
               ],
             ],
           ),

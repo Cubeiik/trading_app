@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/theme/app_theme.dart';
 import '../features/instruments/presentation/instruments_cubit.dart';
+import '../features/quotes/presentation/quotes_cubit.dart';
 import 'app_dependencies.dart';
 import 'router.dart';
 
@@ -22,9 +23,18 @@ class _AppState extends State<App> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) =>
-          InstrumentsCubit(widget.dependencies.instrumentRepository)..load(),
+    final dependencies = widget.dependencies;
+
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => QuotesCubit(dependencies.quoteRepository)),
+        BlocProvider(
+          create: (_) => InstrumentsCubit(
+            dependencies.instrumentRepository,
+            dependencies.quoteRepository,
+          )..load(),
+        ),
+      ],
       child: MaterialApp.router(
         title: 'Trading App',
         theme: AppTheme.light,

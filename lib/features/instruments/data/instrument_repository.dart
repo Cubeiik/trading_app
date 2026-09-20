@@ -22,7 +22,9 @@ class InstrumentRepository {
     try {
       final raw = await _bundle.loadString(AppConfig.instrumentsAsset);
       final decoded = jsonDecode(raw) as List<dynamic>;
-      final instruments = decoded.map((entry) => _toInstrument(entry as Map<String, dynamic>)).toList(growable: false);
+      final instruments = decoded
+          .map((entry) => _toInstrument(entry as Map<String, dynamic>))
+          .toList(growable: false);
 
       _cache = instruments;
       return instruments;
@@ -33,5 +35,7 @@ class InstrumentRepository {
   }
 }
 
-Instrument _toInstrument(Map<String, dynamic> json) =>
-    Instrument(symbol: json['symbol'] as String, contractType: json['contractType'] as int);
+Instrument _toInstrument(Map<String, dynamic> json) => Instrument(
+  symbol: json['symbol'] as String,
+  contractType: json['contractType'] as int,
+);

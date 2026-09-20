@@ -197,7 +197,7 @@ class Quote {
   final String symbol;
   final double bid;
   final double ask;
-  final DateTime receivedAt;     // set locally; server timestamp is an assumption (§21)
+  final DateTime timestamp;      // server time, from the frame's `t` (Unix seconds)
 
   double priceFor(QuoteSide side) => side == QuoteSide.bid ? bid : ask;
 }
@@ -247,6 +247,25 @@ There is no separate `AlertTrigger` type: the evaluator returns the alerts that 
 ## 5. WebSocket layer
 
 Three small files, not a networking framework.
+
+### 5.0 Wire protocol (confirmed against the live server)
+
+Endpoint: `wss://webquotes.geeksoft.pl/websocket/quotes`. Every frame is a JSON object with `p` (path), optional `d` (data) and optional `i` (request id).
+
+| Direction | Frame |
+| --- | --- |
+| Subscribe | `{"p":"/subscribe/addlist","d":["BTCUSD"]}` |
+| Unsubscribe | `{"p":"/subscribe/removelist","d":["BTCUSD"]}` |
+| Quotes | `{"p":"/quotes/subscribed","d":[{"s":"BTCUSD","b":70010.5,"a":70020.5,"t":1770284465}]}` |
+| Acknowledgement | `{"p":"/subscribe/addlist","i":0}` |
+
+`s` symbol, `b` bid, `a` ask, `t` Unix seconds. Three consequences shape the code:
+
+- **A frame carries a list, not one quote**, so `parseQuotes` returns `List<Quote>`.
+- **A frame may cover only some subscribed symbols**, which the `Map<String,Quote>` in `QuotesState` already handles — each entry is updated independently.
+- **Acknowledgements share the envelope with quotes**, so non-quote frames are dropped silently instead of logged (§5.4).
+
+Verified by driving `MarketDataSocket` against the live endpoint during Phase 5: subscribe is accepted, quotes parse, `dispose()` closes cleanly. Note that only 24/7 instruments (`ADAUSD`, `BTCUSD`) tick outside exchange hours — the equities in `assets/instruments.json` stay at `—` over a weekend, which is correct behaviour, not a bug.
 
 ### 5.1 Three concepts that must not be conflated
 
@@ -303,12 +322,12 @@ A single bad frame must never tear down the connection or push an error into a s
 
 | Situation | Handling |
 | --- | --- |
-| Not valid JSON | Catch, log (truncated payload), skip the frame |
-| Valid JSON, unrecognised shape | Log, skip |
-| Quote with missing/unparsable fields | `parseQuote` returns `null`, log, skip |
+| Not valid JSON | Caught inside `parseQuotes`, frame skipped |
+| Subscription acknowledgement (`{"p":"/subscribe/addlist","i":0}`) | Skipped **silently** — these arrive on every subscribe and logging them would be noise |
+| Quote entry with missing/unparsable fields | Dropped; the other entries in the same frame are still delivered |
 | Quote for a symbol we never subscribed to | Accept it; harmless |
 
-`parseQuote` returns `Quote?` rather than throwing, so the "bad message" path is the ordinary control flow rather than exception handling.
+`parseQuotes` returns a list and never throws, so the "bad message" path is ordinary control flow rather than exception handling. A frame carrying five quotes of which one is malformed yields four quotes, not zero.
 
 ### 5.5 Transport seam
 
@@ -324,7 +343,9 @@ abstract interface class WebSocketTransport {
 This is the one abstraction in the networking layer that clearly earns its keep: without it, testing reconnect, resubscription and status transitions would need a real server. Two implementations:
 
 - `WebSocketChannelTransport` — production, wraps `web_socket_channel`.
-- `FakeTransport` — lets tests inject frames, simulate drops and assert on sent frames; **also** drives the app in development, generating a random walk when `WS_URL` is unset. One fake serving both purposes means no separate "fake data source" layer.
+- `FakeTransport` — a **test-only** double that injects frames, simulates drops and records sent frames. It lives under `test/helpers/` and is written when the testing pause (§16) is lifted.
+
+The app ships one transport. There is no fake feed and no offline demo mode: with no reachable `WS_URL` the socket simply keeps retrying under backoff, and the UI shows the reconnect banner. Generating plausible-looking prices in `lib/` would mean shipping a second, parallel source of truth that no requirement asks for.
 
 ---
 
@@ -363,7 +384,7 @@ The Cubit emits a new map per tick (copy-on-write) so state stays immutable and 
 | Requirement | Implementation |
 | --- | --- |
 | Keep showing last known Bid/Ask | The quote map is **never cleared** on disconnect |
-| Don't pretend prices are current | `ConnectionBanner` driven by `status`, plus `receivedAt` for "updated 12 s ago" |
+| Don't pretend prices are current | `ConnectionBanner` driven by `status`, plus `Quote.timestamp` for "updated 12 s ago" |
 | Automatic recovery | Socket reconnects and replays subscriptions; fresh quotes overwrite the map |
 | Manual fallback | "Retry now" in the banner calls `reconnectNow()` |
 
@@ -651,7 +672,7 @@ Done from the start, because they are free and structural:
 - no parsing, sorting or formatting inside `build()`;
 - quote handling entirely outside widgets.
 
-**Not done up front:** throttling/coalescing of quote updates. It is an optimisation, not architecture, and adding a custom stream buffering helper before knowing the real tick rate would be solving an imaginary problem. Phase 10 includes a short verification pass with the fake feed at a high rate and DevTools' rebuild counter; **if** it shows a problem, the fix is small and local — buffer in `QuotesCubit` and emit on a timer — and gets documented in `NOTES.md` with the measurement that justified it.
+**Not done up front:** throttling/coalescing of quote updates. It is an optimisation, not architecture, and adding a custom stream buffering helper before knowing the real tick rate would be solving an imaginary problem. Phase 10 includes a short verification pass driving `MarketDataSocket` from a fast test double and watching DevTools' rebuild counter; **if** it shows a problem, the fix is small and local — buffer in `QuotesCubit` and emit on a timer — and gets documented in `NOTES.md` with the measurement that justified it.
 
 Also not done without evidence: isolates (frames are tiny; `compute` overhead would likely exceed the gain), immutable-collection packages, custom render objects.
 
@@ -678,18 +699,21 @@ No credentials, tokens or endpoints in source. Everything through `--dart-define
 
 ```dart
 class AppConfig {
-  static const wsUrl = String.fromEnvironment('WS_URL');   // empty → fake feed
+  static const wsUrl = String.fromEnvironment(
+    'WS_URL',
+    defaultValue: 'wss://webquotes.geeksoft.pl/websocket/quotes',
+  );
   static const instrumentsAsset = 'assets/instruments.json';
 }
 ```
 
-`AppDependencies` picks `FakeTransport` when `wsUrl` is empty and `WebSocketChannelTransport` otherwise, so running offline or against a real endpoint is a launch-argument change. If auth turns out to be required (§21), the token arrives the same way and is never logged or persisted.
+The default is the endpoint given in the task — a public, unauthenticated address, not a secret — so `flutter run` works with no arguments. Pointing the app somewhere else is a launch-argument change and nothing else. An empty or unreachable `WS_URL` is not a special mode: the socket attempts it, fails, and retries under backoff while the banner says so. If auth turns out to be required (§21), the token arrives the same way and is never logged or persisted.
 
 ---
 
 ## 16. Testing strategy
 
-> **Paused as of Phase 4.** No new tests are written until the developer says otherwise. The per-phase test lists below stay as the intended target set, but each phase is delivered without them and notes the gap. The tests already written in Phase 3 (`InstrumentRepository`, `InstrumentsCubit`, the bootstrap smoke test) remain in place. See `.cursor/rules/project-conventions.mdc`.
+> **Paused as of Phase 4.** No new tests are written until the developer says otherwise. The per-phase test lists below stay as the intended target set, but each phase is delivered without them and notes the gap. `test/` was deleted in Phase 5, once the Phase 3 tests stopped compiling against changed constructors — the whole suite is written in one pass when the pause is lifted. See `.cursor/rules/project-conventions.mdc`.
 
 Priority: domain logic first, then socket behaviour, then Cubits, then a few widget tests for real user flows. Tools: `flutter_test`, `bloc_test`, `mocktail`, `fake_async`. No coverage target — tests exist to prove behaviour, not to move a number, and they assert on behaviour rather than on implementation details.
 
@@ -801,26 +825,33 @@ Dependencies, extra lints, `assets/instruments.json` registered, counter demo re
 
 ---
 
-### Phase 4 — WebSocket: connection, subscriptions, reconnect
+### Phase 4 — WebSocket: connection, subscriptions, reconnect ✅ DONE
 
 - **Goal:** one robust app-wide socket. **The most important technical phase.**
 - **Files:** `core/network/websocket_transport.dart`, `market_data_socket.dart`, `quote_parser.dart`, `features/quotes/domain/quote.dart`.
-- **Tasks:** `Quote` + `QuoteSide` + `priceFor`; `parseQuote` returning `Quote?`; `WebSocketTransport` with real and fake implementations (the fake generates a random walk for dev use); `MarketDataSocket` with connect/subscribe/unsubscribe/reconnectNow/dispose, `_subscribedSymbols`, status stream, private backoff, subscription replay after reconnect, per-message `try/catch`; buffer subscribe calls made while disconnected and flush them on connect.
+- **Tasks:** `Quote` + `QuoteSide` + `priceFor`; `parseQuotes` returning `List<Quote>`; `WebSocketTransport` plus its one production implementation; `MarketDataSocket` with connect/subscribe/unsubscribe/reconnectNow/dispose, `_subscribedSymbols`, status stream, private backoff, subscription replay after reconnect, per-message `try/catch`; buffer subscribe calls made while disconnected and flush them on connect.
 - **Result:** a socket testable without a server, with observable state transitions.
 - **Tests:** the `MarketDataSocket` list in §16.
 - **Pitfalls:** overlapping reconnect timers (one `Timer?` plus an `_isDisposed` flag); not cancelling the previous transport subscription before reconnecting (duplicate handlers — the classic bug); resubscribing before the connection reports open; `addError` on a stream the UI listens to; a non-broadcast controller that only allows one listener.
-- **Note:** frame formats are assumptions (§21) — keep them in `_buildSubscribeFrame` and `parseQuote` so the real protocol is a one-function change.
+- **Note:** frame formats live only in `_buildSubscriptionFrame` and `parseQuotes`, which is what made swapping the guessed protocol for the real one (§5.0) a two-function change.
+- **Deviations:** subscribe and unsubscribe share one `_buildSubscriptionFrame(type, symbols)` instead of two near-identical builders; §21 updated. An `_isOpening` guard rejects a second connection attempt while one is in flight — without it, `reconnectNow()` during a pending `connect()` would leave two live transports. `_teardownConnection()` cancels the message subscription *before* closing the transport, so a planned teardown does not fire `onDone` and trigger a spurious reconnect. Backoff uses the failure count, which is reset both by `reconnectNow()` and by a connection that stays up for 10 s.
+- **Simplification after review:** the parser takes `Object?` and accepts only `String` frames and JSON numbers; the pre-decoded-`Map` branch had no caller.
+- **No fake feed:** a `FakeTransport` generating a random walk was written here and removed during Phase 5 — the app ships one transport and an unreachable endpoint is just a failed connection (§5.5, §15). The test double returns under `test/helpers/` when the testing pause is lifted.
+- **Protocol rewritten in Phase 5:** the guessed `{"type":"subscribe","symbols":[…]}` / one-quote-per-frame shape was replaced by the real protocol once the endpoint was known (§5.0). `parseQuote` became `parseQuotes` returning a list, and `Quote.receivedAt` became `Quote.timestamp` carrying server time.
+- **Verified against the live endpoint:** connect, subscribe, quote parsing and `dispose()` were exercised by driving `MarketDataSocket` directly (no UI). The reconnect and backoff paths are still unverified — they need a forced drop, which is what the test double will provide.
 
 ---
 
-### Phase 5 — Live quotes end to end
+### Phase 5 — Live quotes end to end ✅ DONE
 
 - **Goal:** real-time Bid/Ask on the first screen.
 - **Files:** `features/quotes/data/quote_repository.dart`, `presentation/*`, `app/app_dependencies.dart`, `bootstrap.dart`, plus `InstrumentTile`.
 - **Tasks:** `QuoteRepository`; `QuotesCubit` + `QuotesState`; connect the socket in bootstrap; call `subscribeAll` when the instrument list loads; `PriceText`; `BlocSelector` per row; `ConnectionBanner` with "Retry now".
 - **Result:** the Quotes tab updates live; disconnecting shows the banner while keeping last known prices.
-- **Tests:** `parseQuote` valid/invalid; `QuotesCubit` applies quotes, reacts to status, keeps the map while reconnecting; widget test that updating one symbol rebuilds only that row.
+- **Tests:** `parseQuotes` valid/invalid/partial frame/acknowledgement; `QuotesCubit` applies quotes, reacts to status, keeps the map while reconnecting; widget test that updating one symbol rebuilds only that row.
 - **Pitfalls:** `BlocBuilder` over the whole `QuotesState` in the page (rebuilds everything); clearing the map on disconnect; calling `subscribeAll` on every rebuild instead of once; formatting inside `build`.
+- **Deviations:** `AppDependencies` builds `QuoteRepository` itself from the socket it is given, so no caller can wire a repository to a different socket than the one it disposes. `QuotesCubit` seeds its initial status from `QuoteRepository.currentStatus`, because `bootstrap()` connects before the widget tree exists and the status stream would otherwise not replay. `InstrumentsPage` splits into the page (banner + list) and a private `_InstrumentsList`, so the banner is not rebuilt by instrument-list states. The `NumberFormat` instances in `price_text.dart` are top-level finals rather than created per `build`; precision switches at a price of 10 and carries the §21.11 TODO.
+- **`test/` removed here.** The Phase 3 tests stopped compiling once `InstrumentsCubit` took a second argument and `AppDependencies` required `marketDataSocket`. Rather than carry a broken suite through the testing pause (§16), the directory was deleted; the full set is written in one go when the pause is lifted. `flutter analyze` is clean again.
 
 ---
 
@@ -862,7 +893,7 @@ Dependencies, extra lints, `assets/instruments.json` registered, counter demo re
 - **Goal:** the full alert loop, visible from anywhere.
 - **Files:** `features/alerts/presentation/*`, `app/widgets/alert_notification_host.dart`, `app/app.dart`.
 - **Tasks:** `AlertsPage` (tab 1), `AlertHistoryPage` (tab 2), `CreateAlertPage` at `/alerts/create` with optional `symbol`, instrument picker, live target preview, percentage disabled without a live price; `AlertTile` shared by both lists; `AlertNotificationHost` in the router's `builder`, driven by `pendingNotifications`.
-- **Result:** create → wait → trigger → banner → history works end to end against the fake feed.
+- **Result:** create → wait → trigger → banner → history works end to end against a live feed.
 - **Tests:** the alert-related widget tests in §16, the cross-tab notification test, and — now that every tab has real content — the tab-reachability and scroll-preservation test deferred from Phase 2.
 - **Pitfalls:** putting the listener inside a page (breaks the global requirement); re-showing a notification after a rebuild (the queue must be acknowledged); losing the pre-selected symbol when arriving from details.
 
@@ -871,7 +902,7 @@ Dependencies, extra lints, `assets/instruments.json` registered, counter demo re
 ### Phase 10 — Edge cases, error paths, performance check
 
 - **Goal:** the app behaves under hostile conditions, and real-time updates are confirmed smooth.
-- **Tasks:** audit every `catch` for silent swallowing; feed garbage frames end to end; exercise Hive failure paths; empty and failed instrument load; verify "Retry now" resets backoff without spawning duplicate loops; `AppLifecycleListener` (§14); then a **short** performance pass — fake feed at a high rate, DevTools rebuild counter and frame chart in profile mode, confirm the list does not rebuild wholesale and repeated navigation/reconnects do not grow subscription counts. Add throttling only if the measurement demands it, and record the numbers in `NOTES.md`.
+- **Tasks:** audit every `catch` for silent swallowing; feed garbage frames end to end; exercise Hive failure paths; empty and failed instrument load; verify "Retry now" resets backoff without spawning duplicate loops; `AppLifecycleListener` (§14); then a **short** performance pass — a test double emitting at a high rate, DevTools rebuild counter and frame chart in profile mode, confirm the list does not rebuild wholesale and repeated navigation/reconnects do not grow subscription counts. Add throttling only if the measurement demands it, and record the numbers in `NOTES.md`.
 - **Result:** no crashes under connection loss, bad data or storage failure; documented performance evidence.
 - **Tests:** garbage-frame test; repeated drop/reconnect cycles do not duplicate listeners; storage-failure Cubit test.
 - **Pitfalls:** profiling in debug mode; reconnect storms from overlapping timers; error state that never clears after recovery; optimising without a measurement.
@@ -900,7 +931,7 @@ Dependencies, extra lints, `assets/instruments.json` registered, counter demo re
   3. **Retire the temporary bootstrap smoke test** in `test/widget_test.dart` — delete it if the real screen tests already cover app startup, or rewrite it against the actual initial screen. Then review the widget-test set in §16 against the task requirements and fill any remaining gap.
   4. `flutter analyze` clean, `dart format .`, remove dead code, TODOs and debug prints.
   5. Re-verify §24.
-- **Pitfalls:** leaving the fake feed as an unflagged default; committing env files; handing over run instructions that omit a required `--dart-define`.
+- **Pitfalls:** committing env files; handing over run instructions that omit a required `--dart-define`.
 
 ---
 
@@ -940,7 +971,7 @@ Dependencies, extra lints, `assets/instruments.json` registered, counter demo re
 | --- | --- |
 | `UseCase`/`Interactor` per repository method | Cubits calling repositories directly is readable; wrapper classes would multiply files with no behaviour change |
 | Repository interfaces with a single implementation | Indirection without testability gain; `mocktail` mocks concrete classes |
-| Separate DTO + mapper layers | `Instrument.fromJson` and `parseQuote` produce domain objects directly; a mapper would just forward fields |
+| Separate DTO + mapper layers | `InstrumentRepository` and `parseQuotes` produce domain objects directly; a mapper would just forward fields |
 | A `SocketEvent` union type | Only quotes matter; other messages are logged and dropped |
 | Custom stream coalescing helper | Optimisation without evidence (§13) |
 | Exception hierarchy, logging framework | Nothing branches on error type |
@@ -964,19 +995,16 @@ The line throughout: invest in correctness and separation where the task is judg
 
 Nothing here is invented as fact. Each is isolated so that confirming it changes one small function.
 
+**Items 1–6 are resolved.** The protocol is documented in §5.0 and was confirmed against the live endpoint in Phase 5: paths `/subscribe/addlist`, `/subscribe/removelist` and `/quotes/subscribed`, one frame carrying a list of `{s, b, a, t}` entries, batching supported, prices as JSON numbers, and `t` as Unix seconds — so `Quote.timestamp` now holds the **server** time rather than a local one. A partial frame is normal and needs no merging, because each entry carries both sides.
+
 | # | Question | Working assumption | Isolated in |
 | --- | --- | --- | --- |
-| 1 | Inbound quote format | `{"symbol":…, "bid":…, "ask":…}`, one quote per frame | `parseQuote` |
-| 2 | Message type discriminator | A `type` field if present; otherwise the presence of `bid`/`ask` | `parseQuote` |
-| 3 | Subscribe frame format | `{"type":"subscribe","symbols":[…]}`, batching supported; fallback is one frame per symbol | `_buildSubscribeFrame` |
-| 4 | Server timestamps | Assumed absent or unreliable — `Quote.receivedAt` is always local | `Quote`, `parseQuote` |
-| 5 | Snapshot vs. incremental updates | Assumed each message carries **both** bid and ask. If only one side can arrive, `parseQuote` must merge with the last known quote — **TODO: confirm** | `parseQuote` |
-| 6 | Numeric types on the wire | Parsing accepts both numbers and numeric strings | `parseQuote` |
-| 7 | Authentication | Assumed not required for the mock; a token would arrive via `--dart-define` and never be logged | `AppConfig`, `MarketDataSocket.connect` |
-| 8 | Heartbeat / ping-pong | Assumed none. If required, add a periodic ping and a pong timeout forcing reconnect — **TODO** | `MarketDataSocket` |
+| 7 | Authentication | Not required — the endpoint accepts anonymous connections. A token would arrive via `--dart-define` and never be logged | `AppConfig`, `MarketDataSocket.connect` |
+| 8 | Heartbeat / ping-pong | None observed over a live session. If required, add a periodic ping and a pong timeout forcing reconnect — **TODO** | `MarketDataSocket` |
 | 9 | Instrument source | Assumed a bundled asset. An HTTP endpoint would replace the body of `InstrumentRepository` only | `InstrumentRepository` |
 | 10 | `contractType` code meanings | Unknown; the raw int is preserved and shown as-is | `Instrument` |
-| 11 | Decimal places per instrument | Not provided; `PriceText` uses a sensible default — **TODO** | `PriceText` |
+| 11 | Decimal places per instrument | Not provided by the feed. `PriceText` uses two decimals at or above a price of 10 and four below it, which matches what the live feed sends (`BTCUSD 80871.61`, `ADAUSD 0.2234`) | `PriceText` |
+| 13 | Clock skew | "Updated N s ago" compares the server's `t` against the device clock. A badly set device clock would show nonsense; not compensated for | `Quote.timestamp` |
 | 12 | Alert re-arming | Assumed one-way `ACTIVE → TRIGGERED`, per the brief | `AlertsCubit` |
 
 `assets/instruments.json` currently holds only the five instruments given as an example in the task; replacing it with the full list needs no code change.

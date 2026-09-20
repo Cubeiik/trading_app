@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/router.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../quotes/domain/quote.dart';
+import '../../../quotes/presentation/quotes_cubit.dart';
+import '../../../quotes/presentation/quotes_state.dart';
+import '../../../quotes/presentation/widgets/price_text.dart';
 import '../../domain/instrument.dart';
-
-const noPrice = '—';
 
 class InstrumentTile extends StatelessWidget {
   const InstrumentTile({required this.instrument, super.key});
@@ -18,10 +21,7 @@ class InstrumentTile extends StatelessWidget {
     return InkWell(
       onTap: () => context.push(Routes.instrumentDetails(instrument.symbol)),
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.sm,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: AppSpacing.s),
         child: Row(
           children: [
             Expanded(
@@ -30,16 +30,21 @@ class InstrumentTile extends StatelessWidget {
                 children: [
                   Text(instrument.symbol, style: AppTextStyles.symbolLabel),
                   const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    'Type ${instrument.contractType}',
-                    style: AppTextStyles.caption,
-                  ),
+                  Text('Type ${instrument.contractType}', style: AppTextStyles.caption),
                 ],
               ),
             ),
-            const _PriceColumn(label: 'Bid', value: noPrice),
-            const SizedBox(width: AppSpacing.md),
-            const _PriceColumn(label: 'Ask', value: noPrice),
+
+            BlocSelector<QuotesCubit, QuotesState, Quote?>(
+              selector: (state) => state.quotes[instrument.symbol],
+              builder: (context, quote) => Row(
+                children: [
+                  _PriceColumn(label: 'Bid', price: quote?.bid),
+                  const SizedBox(width: AppSpacing.m),
+                  _PriceColumn(label: 'Ask', price: quote?.ask),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -48,10 +53,10 @@ class InstrumentTile extends StatelessWidget {
 }
 
 class _PriceColumn extends StatelessWidget {
-  const _PriceColumn({required this.label, required this.value});
+  const _PriceColumn({required this.label, required this.price});
 
   final String label;
-  final String value;
+  final double? price;
 
   @override
   Widget build(BuildContext context) {
@@ -62,7 +67,7 @@ class _PriceColumn extends StatelessWidget {
         children: [
           Text(label, style: AppTextStyles.caption),
           const SizedBox(height: AppSpacing.xs),
-          Text(value, style: AppTextStyles.priceCell),
+          PriceText(price: price),
         ],
       ),
     );
