@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/instruments/presentation/instrument_details_page.dart';
 import '../features/instruments/presentation/instruments_page.dart';
 import 'widgets/app_shell.dart';
 import 'widgets/placeholder_page.dart';
@@ -32,10 +33,7 @@ GoRouter createRouter() {
                 routes: [
                   GoRoute(
                     path: ':symbol',
-                    builder: (context, state) => PlaceholderPage(
-                      title: state.pathParameters['symbol'] ?? 'Instrument',
-                      detail: 'Instrument details — phase 6.',
-                    ),
+                    builder: (context, state) => InstrumentDetailsPage(symbol: state.pathParameters['symbol']!),
                   ),
                 ],
               ),
