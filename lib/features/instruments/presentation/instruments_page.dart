@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_text_styles.dart';
+import '../../../app/widgets/message_view.dart';
 import '../../quotes/presentation/widgets/connection_banner.dart';
 import 'instruments_cubit.dart';
 import 'instruments_state.dart';
@@ -37,58 +36,23 @@ class _InstrumentsList extends StatelessWidget {
           case InstrumentsStatus.loading:
             return const Center(child: CircularProgressIndicator());
           case InstrumentsStatus.failure:
-            return _InstrumentsMessage(
+            return MessageView(
               message: state.error ?? 'Could not load the instrument list.',
               onRetry: () => context.read<InstrumentsCubit>().load(),
             );
           case InstrumentsStatus.success:
             if (state.isEmpty) {
-              return const _InstrumentsMessage(
-                message: 'No instruments available.',
-              );
+              return const MessageView(message: 'No instruments available.');
             }
             return ListView.builder(
               itemCount: state.instruments.length,
               itemBuilder: (context, index) {
                 final instrument = state.instruments[index];
-                return InstrumentTile(
-                  key: ValueKey(instrument.symbol),
-                  instrument: instrument,
-                );
+                return InstrumentTile(key: ValueKey(instrument.symbol), instrument: instrument);
               },
             );
         }
       },
-    );
-  }
-}
-
-class _InstrumentsMessage extends StatelessWidget {
-  const _InstrumentsMessage({required this.message, this.onRetry});
-
-  final String message;
-  final VoidCallback? onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.l),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              message,
-              style: AppTextStyles.caption,
-              textAlign: TextAlign.center,
-            ),
-            if (onRetry != null) ...[
-              const SizedBox(height: AppSpacing.m),
-              FilledButton(onPressed: onRetry, child: const Text('Retry')),
-            ],
-          ],
-        ),
-      ),
     );
   }
 }

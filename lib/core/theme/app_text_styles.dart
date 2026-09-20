@@ -16,6 +16,13 @@ abstract final class AppTextStyles {
     fontFeatures: [FontFeature.tabularFigures()],
   );
 
+  static const priceHeadline = TextStyle(
+    fontFamily: AppTypography.fontFamily,
+    fontSize: AppTypography.displaySize,
+    fontWeight: AppTypography.semiBold,
+    fontFeatures: [FontFeature.tabularFigures()],
+  );
+
   static const screenTitle = TextStyle(
     fontFamily: AppTypography.fontFamily,
     fontSize: AppTypography.titleSize,

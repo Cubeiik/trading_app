@@ -19,6 +19,8 @@ class QuotesCubit extends Cubit<QuotesState> {
   late final StreamSubscription<Quote> _quotesSubscription;
   late final StreamSubscription<ConnectionStatus> _statusSubscription;
 
+  void subscribe(String symbol) => _repository.subscribe(symbol);
+
   void reconnectNow() => _repository.reconnectNow();
 
   void _onQuote(Quote quote) {

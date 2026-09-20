@@ -855,7 +855,7 @@ Dependencies, extra lints, `assets/instruments.json` registered, counter demo re
 
 ---
 
-### Phase 6 — Instrument details
+### Phase 6 — Instrument details ✅ DONE
 
 - **Goal:** a detail screen consuming existing app-level state.
 - **Files:** `features/instruments/presentation/instrument_details_page.dart`, route wiring.
@@ -863,6 +863,9 @@ Dependencies, extra lints, `assets/instruments.json` registered, counter demo re
 - **Result:** a live detail view with the nav bar still visible.
 - **Tests:** renders the quote; `FakeTransport.connectCount` stays 1 after navigating; unknown symbol shows a not-found state.
 - **Pitfalls:** a screen-scoped quote source; unsubscribing on dispose and starving the list; declaring the route outside the branch.
+- **Deviations:** `subscribe(symbol)` was added to `QuotesCubit` rather than letting the page reach for `QuoteRepository` directly, keeping the rule that screens talk only to cubits. The instrument lookup uses `BlocBuilder` over `InstrumentsCubit` (the list emits once, so there is nothing to optimise) while prices sit behind a `BlocSelector` keyed on the symbol. An unknown symbol is distinguished from a still-loading list by checking `InstrumentsStatus.success`, so a deep link resolves correctly either way. New token `AppTextStyles.priceHeadline`; `PriceText` gained an optional `style`.
+- **Follow-up from review:** the detail screen used to spin forever when the instrument list failed to load — it now shows the error with a Retry button, same as the list. The message-with-optional-retry widget moved to `app/widgets/message_view.dart` on its second use. The `subscribe(symbol)` call in `initState` stays: `MarketDataSocket.subscribe` skips symbols already in `_subscribedSymbols`, so it sends a frame only when the symbol is genuinely missing.
+- **Known limitation:** "Updated 12 s ago" is computed during `build`, so it only refreshes when a new quote arrives. While disconnected the label freezes at the last tick — acceptable because the banner already states the connection is down, and a per-second `Timer` purely to age a label is not worth the rebuild.
 
 ---
 
@@ -1003,7 +1006,7 @@ Nothing here is invented as fact. Each is isolated so that confirming it changes
 | 8 | Heartbeat / ping-pong | None observed over a live session. If required, add a periodic ping and a pong timeout forcing reconnect — **TODO** | `MarketDataSocket` |
 | 9 | Instrument source | Assumed a bundled asset. An HTTP endpoint would replace the body of `InstrumentRepository` only | `InstrumentRepository` |
 | 10 | `contractType` code meanings | Unknown; the raw int is preserved and shown as-is | `Instrument` |
-| 11 | Decimal places per instrument | Not provided by the feed. `PriceText` uses two decimals at or above a price of 10 and four below it, which matches what the live feed sends (`BTCUSD 80871.61`, `ADAUSD 0.2234`) | `PriceText` |
+| 11 | Decimal places per instrument | Not provided by the feed. `PriceText` formats everything with two decimals — a deliberate simplification. Low-priced instruments lose precision on screen (`ADAUSD 0.2234` renders as `0.22`) and appear static between ticks; alert thresholds are stored and compared at full precision regardless | `PriceText` |
 | 13 | Clock skew | "Updated N s ago" compares the server's `t` against the device clock. A badly set device clock would show nonsense; not compensated for | `Quote.timestamp` |
 | 12 | Alert re-arming | Assumed one-way `ACTIVE → TRIGGERED`, per the brief | `AlertsCubit` |
 

@@ -21,7 +21,10 @@ class InstrumentTile extends StatelessWidget {
     return InkWell(
       onTap: () => context.push(Routes.instrumentDetails(instrument.symbol)),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: AppSpacing.s),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.m,
+          vertical: AppSpacing.s,
+        ),
         child: Row(
           children: [
             Expanded(
@@ -30,7 +33,10 @@ class InstrumentTile extends StatelessWidget {
                 children: [
                   Text(instrument.symbol, style: AppTextStyles.symbolLabel),
                   const SizedBox(height: AppSpacing.xs),
-                  Text('Type ${instrument.contractType}', style: AppTextStyles.caption),
+                  Text(
+                    'Type ${instrument.contractType}',
+                    style: AppTextStyles.caption,
+                  ),
                 ],
               ),
             ),

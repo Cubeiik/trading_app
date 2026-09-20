@@ -10,4 +10,5 @@ abstract final class AppTypography {
   static const captionSize = 12.0;
   static const bodySize = 14.0;
   static const titleSize = 18.0;
+  static const displaySize = 28.0;
 }
