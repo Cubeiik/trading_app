@@ -35,22 +35,28 @@
 
 ---
 
+
+
 ## 1. Scope
 
 A live list of financial instruments with Bid/Ask prices streamed over **one** application-wide WebSocket, an instrument detail screen, and price alerts (absolute and percentage) evaluated against that stream, persisted locally with Hive and announced globally when triggered.
 
-| In scope | Out of scope |
-| --- | --- |
-| Live quotes list (all instruments) | Order placement, trading execution |
-| Instrument details | Charts, historical data |
-| Absolute + percentage alerts, Bid/Ask, Above/Below | Server-side alerts, push notifications |
-| Crossing-based alert evaluation | Auth, user accounts |
-| Hive persistence of active alerts + history | Offline quote replay / backfill |
-| Auto-reconnect + auto-resubscribe | Background execution |
-| Bottom navigation: Quotes / Alerts / History | Deep linking, i18n |
-| Unit tests for business logic, selected widget tests | Arbitrary coverage targets |
+
+| In scope                                             | Out of scope                           |
+| ---------------------------------------------------- | -------------------------------------- |
+| Live quotes list (all instruments)                   | Order placement, trading execution     |
+| Instrument details                                   | Charts, historical data                |
+| Absolute + percentage alerts, Bid/Ask, Above/Below   | Server-side alerts, push notifications |
+| Crossing-based alert evaluation                      | Auth, user accounts                    |
+| Hive persistence of active alerts + history          | Offline quote replay / backfill        |
+| Auto-reconnect + auto-resubscribe                    | Background execution                   |
+| Bottom navigation: Quotes / Alerts / History         | Deep linking, i18n                     |
+| Unit tests for business logic, selected widget tests | Arbitrary coverage targets             |
+
 
 ---
+
+
 
 ## 2. Architecture overview
 
@@ -88,9 +94,11 @@ Feature-oriented with a light domain/data/presentation split. Three layers where
 
 **Hard rule:** no widget, page or screen-scoped Cubit ever constructs, opens, closes or reconnects a socket. Screens read `QuotesCubit` state; that is all.
 
-**Why `QuoteRepository` exists at all** (it is thin, so it needs a reason): it is the seam that keeps `QuotesCubit` free of socket internals, and it makes Cubit tests trivial — fake the repository instead of faking a transport and driving a reconnect state machine. It does **not** cache: the last-known map lives in `QuotesState`, so there is exactly one source of truth for the UI.
+**Why** `QuoteRepository` **exists at all** (it is thin, so it needs a reason): it is the seam that keeps `QuotesCubit` free of socket internals, and it makes Cubit tests trivial — fake the repository instead of faking a transport and driving a reconnect state machine. It does **not** cache: the last-known map lives in `QuotesState`, so there is exactly one source of truth for the UI.
 
 ---
+
+
 
 ## 3. Project structure
 
@@ -167,11 +175,15 @@ test/                            mirrors lib/, plus test/helpers/
 
 ---
 
+
+
 ## 4. Domain models and numeric handling
+
+
 
 ### 4.1 Numeric type for prices
 
-**Decision: use `double`, with percentage targets rounded once at creation.**
+**Decision: use** `double`**, with percentage targets rounded once at creation.**
 
 Reasoning, because this is the decision a fintech reviewer will probe:
 
@@ -246,6 +258,8 @@ There is no separate `AlertTrigger` type: the evaluator returns the alerts that 
 
 ---
 
+
+
 ## 5. WebSocket layer
 
 Three small files, not a networking framework.
@@ -254,12 +268,14 @@ Three small files, not a networking framework.
 
 Endpoint: `wss://webquotes.geeksoft.pl/websocket/quotes`. Every frame is a JSON object with `p` (path), optional `d` (data) and optional `i` (request id).
 
-| Direction | Frame |
-| --- | --- |
-| Subscribe | `{"p":"/subscribe/addlist","d":["BTCUSD"]}` |
-| Unsubscribe | `{"p":"/subscribe/removelist","d":["BTCUSD"]}` |
-| Quotes | `{"p":"/quotes/subscribed","d":[{"s":"BTCUSD","b":70010.5,"a":70020.5,"t":1770284465}]}` |
-| Acknowledgement | `{"p":"/subscribe/addlist","i":0}` |
+
+| Direction       | Frame                                                                                    |
+| --------------- | ---------------------------------------------------------------------------------------- |
+| Subscribe       | `{"p":"/subscribe/addlist","d":["BTCUSD"]}`                                              |
+| Unsubscribe     | `{"p":"/subscribe/removelist","d":["BTCUSD"]}`                                           |
+| Quotes          | `{"p":"/quotes/subscribed","d":[{"s":"BTCUSD","b":70010.5,"a":70020.5,"t":1770284465}]}` |
+| Acknowledgement | `{"p":"/subscribe/addlist","i":0}`                                                       |
+
 
 `s` symbol, `b` bid, `a` ask, `t` Unix seconds. Three consequences shape the code:
 
@@ -271,11 +287,13 @@ Verified by driving `MarketDataSocket` against the live endpoint during Phase 5:
 
 ### 5.1 Three concepts that must not be conflated
 
-| Concept | What it is | Cardinality |
-| --- | --- | --- |
-| **WebSocket connection** | One connection to the server, owned by `MarketDataSocket`. Can drop and be re-established. | **Exactly 1 per app** |
-| **Logical subscription** | "I want updates for `AAPL.US`" — a protocol message over the existing connection. Replayed after reconnect. | N per connection |
-| **Dart `Stream`** | In-process delivery of values already received. Listening never opens a connection. | Many |
+
+| Concept                  | What it is                                                                                                  | Cardinality           |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------- | --------------------- |
+| **WebSocket connection** | One connection to the server, owned by `MarketDataSocket`. Can drop and be re-established.                  | **Exactly 1 per app** |
+| **Logical subscription** | "I want updates for `AAPL.US`" — a protocol message over the existing connection. Replayed after reconnect. | N per connection      |
+| **Dart** `Stream`        | In-process delivery of values already received. Listening never opens a connection.                         | Many                  |
+
 
 Naming rule: *subscribe/unsubscribe* for the protocol, *listen/cancel* for Dart streams. Never mix the vocabulary.
 
@@ -289,9 +307,7 @@ class MarketDataSocket {
 
   Future<void> connect();
   void subscribe(Iterable<String> symbols);    // idempotent
-  void unsubscribe(String symbol);
   void reconnectNow();                         // manual retry, resets backoff
-  Future<void> dispose();
 }
 
 enum ConnectionStatus { disconnected, connecting, connected, reconnecting }
@@ -307,27 +323,31 @@ It emits `Stream<Quote>` directly rather than a `SocketEvent` union type. A unio
 
 ```
  disconnected ──connect()──► connecting ──ok──► connected
-      ▲                          │                  │ drop
-      │ dispose()                │ fail             ▼
-      └──────────────────── reconnecting ◄──────────┘
+                                 │                  │ drop
+                                 │ fail             ▼
+                            reconnecting ◄──────────┘
                                  │ ok
                                  └──────────────► connected
 ```
 
 - `connecting` — first attempt. `reconnecting` — automatic recovery after a drop or failed attempt. The UI distinguishes them: "Connecting…" vs. "Reconnecting — showing last known prices".
-- `disconnected` is reached only through explicit `dispose()`. The app never gives up on its own.
+- `disconnected` is only the state before the first `connect()`. Once started, the app never gives up on its own and there is no teardown path: the socket lives as long as the process.
 - Backoff: **1s → 2s → 4s → 8s → 16s → 30s (cap)**, a private method on the socket, reset once a connection has been stable for 10 s. No jitter and no injected `Random`: jitter matters for a server facing thousands of clients, and leaving it out keeps the reconnect tests deterministic. Noted in `NOTES.md` as a production consideration.
+
+
 
 ### 5.4 Bad messages
 
 A single bad frame must never tear down the connection or push an error into a stream the UI listens to.
 
-| Situation | Handling |
-| --- | --- |
-| Not valid JSON | Caught inside `parseQuotes`, frame skipped |
+
+| Situation                                                         | Handling                                                                               |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Not valid JSON                                                    | Caught inside `parseQuotes`, frame skipped                                             |
 | Subscription acknowledgement (`{"p":"/subscribe/addlist","i":0}`) | Skipped **silently** — these arrive on every subscribe and logging them would be noise |
-| Quote entry with missing/unparsable fields | Dropped; the other entries in the same frame are still delivered |
-| Quote for a symbol we never subscribed to | Accept it; harmless |
+| Quote entry with missing/unparsable fields                        | Dropped; the other entries in the same frame are still delivered                       |
+| Quote for a symbol we never subscribed to                         | Accept it; harmless                                                                    |
+
 
 `parseQuotes` returns a list and never throws, so the "bad message" path is ordinary control flow rather than exception handling. A frame carrying five quotes of which one is malformed yields four quotes, not zero.
 
@@ -351,7 +371,11 @@ The app ships one transport. There is no fake feed and no offline demo mode: wit
 
 ---
 
+
+
 ## 6. Quotes: repository and state
+
+
 
 ### 6.1 `QuoteRepository`
 
@@ -383,18 +407,24 @@ The Cubit emits a new map per tick (copy-on-write) so state stays immutable and 
 
 ### 6.3 Behaviour while disconnected
 
-| Requirement | Implementation |
-| --- | --- |
-| Keep showing last known Bid/Ask | The quote map is **never cleared** on disconnect |
+
+| Requirement                      | Implementation                                                                       |
+| -------------------------------- | ------------------------------------------------------------------------------------ |
+| Keep showing last known Bid/Ask  | The quote map is **never cleared** on disconnect                                     |
 | Don't pretend prices are current | `ConnectionBanner` driven by `status`, plus `Quote.timestamp` for "updated 12 s ago" |
-| Automatic recovery | Socket reconnects and replays subscriptions; fresh quotes overwrite the map |
-| Manual fallback | "Retry now" in the banner calls `reconnectNow()` |
+| Automatic recovery               | Socket reconnects and replays subscriptions; fresh quotes overwrite the map          |
+| Manual fallback                  | "Retry now" in the banner calls `reconnectNow()`                                     |
+
 
 Not done: greying out individual rows during a global outage (connection loss is a global condition, communicated once), and treating a quiet symbol as a failure (quiet markets exist; the protocol gives no per-symbol health signal).
 
 ---
 
+
+
 ## 7. Alerts: semantics, evaluator, coordinator
+
+
 
 ### 7.1 Crossing rule
 
@@ -422,15 +452,19 @@ This one rule covers both requirements:
 
 At creation: `referencePrice` = current price of the **selected side**, `targetPrice = roundPrice(reference * (1 + pct/100))`, `direction` from the sign.
 
-| Side | Bid | Ask | Pct | reference | target |
-| --- | --- | --- | --- | --- | --- |
-| Bid | 200 | 200.5 | +5% | 200 | 210 |
-| Bid | 200 | 200.5 | −5% | 200 | 190 |
-| Ask | 200 | 200.5 | +5% | 200.5 | 210.525 |
+
+| Side | Bid | Ask   | Pct | reference | target  |
+| ---- | --- | ----- | --- | --------- | ------- |
+| Bid  | 200 | 200.5 | +5% | 200       | 210     |
+| Bid  | 200 | 200.5 | −5% | 200       | 190     |
+| Ask  | 200 | 200.5 | +5% | 200.5     | 210.525 |
+
 
 **The selected side is used for both the reference and every later evaluation.** Taking the reference from bid and evaluating on ask would shift the threshold by the spread. Enforced by routing every read through `quote.priceFor(alert.side)`.
 
-A percentage alert cannot be created without a live price for that symbol — there would be no reference. The form disables Save and says why.
+A percentage alert cannot be created without a live price for that symbol — there would be no reference. The form disables Save and says why. Since the revision below, the same holds for price-level alerts: without a live price there is nothing to compare the level against, so the direction cannot be derived.
+
+**Revision after Phase 9:** the form no longer asks for a direction on price-level alerts. The user types the level to reach and `direction` comes from `value > reference`. On percentage alerts the direction moved the other way — the user picks Up or Down and the magnitude stays positive, so the sign of `percentage` is derived from the choice rather than typed. The domain is untouched: `PriceAlert.percentage` still takes a signed percentage and still derives the direction from its sign.
 
 Once `targetPrice` is computed, a percentage alert evaluates exactly like an absolute one, so there is no extra branching in the hot path.
 
@@ -471,7 +505,11 @@ Within one session `_previous` survives the outage, so the first post-reconnect 
 
 ---
 
+
+
 ## 8. Persistence (Hive)
+
+
 
 ### 8.1 Storage shape
 
@@ -489,7 +527,8 @@ Active and triggered alerts live in the same box, discriminated by the `status` 
 Adapters are generated with `hive_ce`'s `GenerateAdapters` annotation, which — unlike classic Hive — does **not** require annotating the model classes themselves. The whole declaration lives in one file in the data layer:
 
 ```dart
-// features/alerts/data/hive_adapters.dart
+// features/alerts/data/hive_adapters.dart — `class HiveAdapters {}` in the
+// sketch below is really `part 'hive_adapters.g.dart';` in hive_ce 2.x
 @GenerateAdapters([
   AdapterSpec<PriceAlert>(),
   AdapterSpec<QuoteSide>(),
@@ -506,19 +545,23 @@ Adapters are registered in `bootstrap.dart` through the generated registrar befo
 
 **Rules that keep stored data readable after a code change** (the real migration risk with generated adapters):
 
-- typeIds are assigned by the **order of entries in `specs`** — never reorder or delete an entry; use the `reservedTypeIds` parameter when retiring one.
+- typeIds are assigned by the **order of entries in** `specs` — never reorder or delete an entry; use the `reservedTypeIds` parameter when retiring one.
 - field indexes follow the **order of fields in the class** — add new fields at the end only, and give them defaults so existing records still load.
+
+
 
 ### 8.3 Repository
 
 ```dart
 class AlertRepository {
   AlertRepository(this._box);              // injected → tests use a temp-dir box
-  Future<List<PriceAlert>> loadAll();
+  List<PriceAlert> loadAll();              // the box is open before runApp
   Future<void> save(PriceAlert alert);
   Future<void> delete(String id);
 }
 ```
+
+A top-level `openAlertsBox()` in the same file performs §8.4's open-recover-reopen dance. If the reopen fails too, it throws and the app does not start — the earlier design fell back to a nullable box and an in-memory list, which bought a scenario no reviewer will ever see at the price of a null check in every method.
 
 One class is the whole data layer for alerts, and it is the boundary: no Cubit and no widget imports `hive`.
 
@@ -530,23 +573,31 @@ Versioning stays at the level a task this size warrants: the append-only field a
 
 ---
 
+
+
 ## 9. State management (Cubits)
 
 Cubits rather than Blocs: every interaction here is a direct method call ("create alert", "load instruments", "quote arrived"), with no event sourcing, replay or transformation that would justify event classes.
 
-| Cubit | State | Owns | Does not own |
-| --- | --- | --- | --- |
-| `InstrumentsCubit` | `status`, `List<Instrument>`, `error?` | Loading the list; triggering `subscribeAll` once loaded | Quotes, connection, sockets |
-| `QuotesCubit` | `Map<String,Quote>`, `ConnectionStatus` | Applying incoming quotes to state; `reconnectNow()` | Socket lifecycle, alert logic, persistence |
-| `AlertsCubit` | `active`, `triggered`, `pendingNotifications`, `error?` | Alert CRUD, applying triggers, notification queue | Evaluating conditions (that is `AlertEvaluator`), touching Hive directly |
 
-**Why `QuotesCubit` is separate from `InstrumentsCubit`** (the brief sketched one Cubit for both): the instrument list emits once and then stays still; quotes emit continuously. In one state object every tick would invalidate the state the list structure depends on, rebuilding the whole list. Separating them gives each Cubit one reason to change — this is the single most load-bearing state decision in the app.
+| Cubit              | State                                                   | Owns                                                    | Does not own                                                             |
+| ------------------ | ------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `InstrumentsCubit` | `status`, `List<Instrument>`, `error?`                  | Loading the list; triggering `subscribeAll` once loaded | Quotes, connection, sockets                                              |
+| `QuotesCubit`      | `Map<String,Quote>`, `ConnectionStatus`                 | Applying incoming quotes to state; `reconnectNow()`     | Socket lifecycle, alert logic, persistence                               |
+| `AlertsCubit`      | `active`, `triggered`, `pendingNotifications`, `error?` | Alert CRUD, applying triggers, notification queue       | Evaluating conditions (that is `AlertEvaluator`), touching Hive directly |
+
+
+**Why** `QuotesCubit` **is separate from** `InstrumentsCubit` (the brief sketched one Cubit for both): the instrument list emits once and then stays still; quotes emit continuously. In one state object every tick would invalidate the state the list structure depends on, rebuilding the whole list. Separating them gives each Cubit one reason to change — this is the single most load-bearing state decision in the app.
 
 No `AppCubit`, no `ConnectionCubit` (status belongs with the data it qualifies), no `AlertNotificationCubit` (the queue lives in `AlertsState`, produced by the same transition that creates it).
 
 ---
 
+
+
 ## 10. Screens and navigation
+
+
 
 ### 10.1 Screens
 
@@ -564,13 +615,15 @@ No `AppCubit`, no `ConnectionCubit` (status belongs with the data it qualifies),
 └─────────────────────────────────────────────────────────┘
 ```
 
-| # | Screen | Route | Nav bar | State source |
-| --- | --- | --- | --- | --- |
-| 1 | Live quotes | `/quotes` (tab 0, initial) | yes | `InstrumentsCubit` + `QuotesCubit` |
-| 2 | Instrument details | `/quotes/:symbol` | yes (stays in tab 0) | `QuotesCubit` + `AlertsCubit` |
-| 3 | Active alerts | `/alerts` (tab 1) | yes | `AlertsState.active` |
-| 4 | Create alert | `/alerts/create?symbol=` | no (covers it) | `AlertsCubit` + `QuotesCubit` |
-| 5 | Alert history | `/history` (tab 2) | yes | `AlertsState.triggered` |
+
+| #   | Screen             | Route                      | Nav bar              | State source                       |
+| --- | ------------------ | -------------------------- | -------------------- | ---------------------------------- |
+| 1   | Live quotes        | `/quotes` (tab 0, initial) | yes                  | `InstrumentsCubit` + `QuotesCubit` |
+| 2   | Instrument details | `/quotes/:symbol`          | yes (stays in tab 0) | `QuotesCubit` + `AlertsCubit`      |
+| 3   | Active alerts      | `/alerts` (tab 1)          | yes                  | `AlertsState.active`               |
+| 4   | Create alert       | `/alerts/create?symbol=`   | no (covers it)       | `AlertsCubit` + `QuotesCubit`      |
+| 5   | Alert history      | `/history` (tab 2)         | yes                  | `AlertsState.triggered`            |
+
 
 **Live quotes** — every instrument, each row showing symbol, Bid, Ask, and `—` before the first quote (not a spinner per row). `ListView.builder`, `ValueKey(symbol)`, `ConnectionBanner` pinned above. All instruments are subscribed once the list loads, because this screen shows live Bid/Ask for all of them — one batched subscribe over the one connection.
 
@@ -578,7 +631,7 @@ No `AppCubit`, no `ConnectionCubit` (status belongs with the data it qualifies),
 
 **Active alerts** — `AlertsState.active` with delete; tapping a row opens that instrument; a create action opens the form with no symbol pre-selected.
 
-**Create alert** — one screen serving both entry points. Fields: instrument (picker, locked when arriving from details), side, kind, direction, value. Shows the current live price of the selected side and, for percentage, a live preview of the computed target. Save is disabled for percentage alerts with no live price. Pushed on the root navigator (`parentNavigatorKey`), so it covers the nav bar: a validated multi-field form is a committed task, and the user should not wander into another tab mid-form.
+**Create alert** — one screen serving both entry points. Fields: instrument (picker, locked when arriving from details), side, kind, value, and direction **only for percentage alerts**. A price-level alert states where the price has to get to, and which way that is follows from the live price, so asking for it would let the user contradict themselves. Shows the current live price of the selected side and, for percentage, a live preview of the computed target. Save is disabled for percentage alerts with no live price. Pushed on the root navigator (`parentNavigatorKey`), so it covers the nav bar: a validated multi-field form is a committed task, and the user should not wander into another tab mid-form.
 
 **Alert history** — `AlertsState.triggered`, newest first, showing the target, the price that actually triggered it and `triggeredAt`. Delete removes permanently; nothing re-arms.
 
@@ -610,29 +663,37 @@ MaterialApp.router(
 );
 ```
 
-A `BlocListener<AlertsCubit, AlertsState>` on `pendingNotifications` renders a banner over the routed content and calls `acknowledge(id)`. Because it sits above the shell, the notification appears on any tab, on details, and while the create form is open — and no page needs to know alerts exist. Several alerts firing at once are shown one after another, not stacked.
+A `BlocListener<AlertsCubit, AlertsState>` on `pendingNotifications` renders a banner over the routed content and calls `acknowledge(id)`. Because it sits above the shell, the notification appears on any tab, on details, and while the create form is open — and no page needs to know alerts exist. Several alerts firing at once are shown one after another, not stacked. The same host also surfaces `AlertsState.error` as a SnackBar, which is what lets the create form pop without awaiting persistence.
+
+Sitting above the Navigator has two consequences worth knowing before writing this widget: `context.go` is unavailable (the router instance is passed in) and `Tooltip` cannot be used (no `Overlay`).
 
 Visuals stay minimal (symbol, side, direction, target, triggered price, auto-dismiss, tap to open History). Phase 11 restyles it.
 
 ---
 
+
+
 ## 11. Design system
 
 Placeholder styling now, but every visual value goes through a token layer so the Figma design can later be applied by editing `core/theme/` and a few widgets.
 
-| File | Contents |
-| --- | --- |
-| `app_colors.dart` | Palette + semantic aliases (`priceUp`, `priceDown`, `statusWarning`) |
-| `app_typography.dart` | Font family, weights, sizes |
-| `app_text_styles.dart` | Named styles (`priceCell`, `symbolLabel`, `caption`) |
-| `app_spacing.dart` | Small scale (`xs/sm/md/lg`) + radii |
-| `app_theme.dart` | `ThemeData` assembly |
+
+| File                   | Contents                                                             |
+| ---------------------- | -------------------------------------------------------------------- |
+| `app_colors.dart`      | Palette + semantic aliases (`priceUp`, `priceDown`, `statusWarning`) |
+| `app_typography.dart`  | Font family, weights, sizes                                          |
+| `app_text_styles.dart` | Named styles (`priceCell`, `symbolLabel`, `caption`)                 |
+| `app_spacing.dart`     | Small scale (`xs/sm/md/lg`) + radii                                  |
+| `app_theme.dart`       | `ThemeData` assembly                                                 |
+
 
 Rules: no hardcoded colours, text styles or repeated paddings inside feature widgets; a handful of reusable presentational widgets (`PriceText`, `ConnectionBanner`, `AlertTile`) carry the tokens. Do **not** pre-create tokens — add one when a second usage appears. The design system is a thin foundation, not a project of its own.
 
 Separation to maintain: business logic in `domain/`, state in Cubits, data access in `data/` and `core/network/`, UI in pages/widgets, tokens in `core/theme/`. Phase 11 should touch only the last two.
 
 ---
+
+
 
 ## 12. Error handling
 
@@ -649,19 +710,23 @@ void logError(Object error, [StackTrace? stackTrace, String? context]);
 
 A hierarchy of network/storage/validation subclasses is not created, because nothing in the app branches on the exception *type* — the handling differs by *where* the failure happens, and that is already known at the catch site. Repositories translate low-level exceptions (`HiveError`, `FormatException`, socket errors) into `AppException` with a readable message; Cubits catch it and put a failure into state.
 
-| Failure | Behaviour |
-| --- | --- |
-| Socket cannot connect / drops | Status → `reconnecting`, banner, backoff retry, last known prices kept. Never a blocking dialog |
-| Malformed message | Logged and skipped; connection stays up; not surfaced to the user |
-| `instruments.json` missing/invalid | `InstrumentsCubit` failure state with a Retry button — nothing works without it, so this one blocks |
-| Empty instrument list | Empty state, not an error; no subscribe call |
-| Hive open failure | Log, delete + recreate the box once, continue with an in-memory list and a warning |
-| Hive write failure | Keep the in-memory change, show "could not save"; never crash |
-| Invalid alert input | Handled by form validation; the named constructors assert invariants as a backstop |
+
+| Failure                            | Behaviour                                                                                                                         |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Socket cannot connect / drops      | Status → `reconnecting`, banner, backoff retry, last known prices kept. Never a blocking dialog                                   |
+| Malformed message                  | Logged and skipped; connection stays up; not surfaced to the user                                                                 |
+| `instruments.json` missing/invalid | `InstrumentsCubit` failure state with a Retry button — nothing works without it, so this one blocks                               |
+| Empty instrument list              | Empty state, not an error; no subscribe call                                                                                      |
+| Hive open failure                  | Log, delete + recreate the box once; if that fails too, let the launch fail rather than thread a nullable box through the feature |
+| Hive write failure                 | Keep the in-memory change, show "could not save"; never crash                                                                     |
+| Invalid alert input                | Handled by form validation; the named constructors assert invariants as a backstop                                                |
+
 
 Cross-cutting: no empty `catch {}` anywhere — every catch logs, translates, or both. `runZonedGuarded` + `FlutterError.onError` in `bootstrap.dart` route uncaught errors to `logError`. That is the entire error framework.
 
 ---
+
+
 
 ## 13. Performance
 
@@ -680,20 +745,26 @@ Also not done without evidence: isolates (frames are tiny; `compute` overhead wo
 
 ---
 
+
+
 ## 14. App lifecycle
 
 `AppLifecycleListener` in `App`, delegating to the socket:
 
-| Event | Behaviour |
-| --- | --- |
-| Launch | `bootstrap()` opens Hive, builds dependencies, connects, loads instruments, subscribes to all |
-| Background | Leave the connection alone; the OS suspends it anyway. Short backgrounding should not cost a reconnect |
-| Resume | `reconnectNow()` if the socket is not connected; subscriptions replay automatically. Displayed prices stay last-known until fresh ticks arrive |
-| Terminate | `dispose()`: cancel timers and subscriptions, close the sink and controllers, close the box |
+
+| Event      | Behaviour                                                                                                                                      |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Launch     | `bootstrap()` opens Hive, builds dependencies, connects, loads instruments, subscribes to all                                                  |
+| Background | Leave the connection alone; the OS suspends it anyway. Short backgrounding should not cost a reconnect                                         |
+| Resume     | `reconnectNow()` if the socket is not connected; subscriptions replay automatically. Displayed prices stay last-known until fresh ticks arrive |
+| Terminate  | Nothing. The socket, its timers and the box live as long as the process, so there is no teardown code to get wrong                             |
+
 
 That is the whole lifecycle story. No background execution, no connectivity plugin (the backoff loop already recovers; a connectivity signal would only call `reconnectNow()` sooner), no battery-saving disconnect timer.
 
 ---
+
+
 
 ## 15. Configuration
 
@@ -713,6 +784,8 @@ The default is the endpoint given in the task — a public, unauthenticated addr
 
 ---
 
+
+
 ## 16. Testing strategy
 
 > **Paused as of Phase 4.** No new tests are written until the developer says otherwise. The per-phase test lists below stay as the intended target set, but each phase is delivered without them and notes the gap. `test/` was deleted in Phase 5, once the Phase 3 tests stopped compiling against changed constructors — the whole suite is written in one pass when the pause is lifted. See `.cursor/rules/project-conventions.mdc`.
@@ -723,7 +796,7 @@ Priority: domain logic first, then socket behaviour, then Cubits, then a few wid
 
 `test/widget_test.dart` currently holds a **temporary bootstrap smoke test** asserting that `App` builds and renders the placeholder screen. It exists only so the suite is not empty during early phases. It is replaced or deleted in Phase 12, once the real screens and their tests exist.
 
-**`AlertEvaluator`** (pure, no mocks — the highest-value tests in the project)
+`AlertEvaluator` (pure, no mocks — the highest-value tests in the project)
 
 - absolute above: `249 → 251` with target 250 triggers; `251 → 252` does not;
 - absolute below: `251 → 249` with target 250 triggers;
@@ -736,21 +809,20 @@ Priority: domain logic first, then socket behaviour, then Cubits, then a few wid
 - a quote for an unrelated symbol triggers nothing;
 - already-triggered alerts are skipped.
 
-**`AlertCoordinator`**
+`AlertCoordinator`
 
 - the first quote for a symbol sets the baseline and triggers nothing (covers both "condition already true at creation" and cold start);
 - the second quote is evaluated against the first;
 - a trigger produces exactly one Cubit call and one persisted write.
 
-**`MarketDataSocket`** (with `FakeTransport` + `fake_async`)
+`MarketDataSocket` (with `FakeTransport` + `fake_async`)
 
 - `disconnected → connecting → connected`;
 - `connected → reconnecting → connected` after a drop;
 - backoff delays follow 1/2/4/8/16/30 and reset after a stable period;
 - **resubscription**: subscribe A+B, drop, reconnect → the resubscribe frame contains exactly A and B;
 - `subscribe` is idempotent;
-- valid frame parses into a `Quote`; malformed JSON is skipped and the stream stays open;
-- `dispose()` closes the transport and stops emitting.
+- valid frame parses into a `Quote`; malformed JSON is skipped and the stream stays open.
 
 **Cubits** (`bloc_test`)
 
@@ -758,7 +830,7 @@ Priority: domain logic first, then socket behaviour, then Cubits, then a few wid
 - `QuotesCubit`: applies an incoming quote; reacts to status changes; keeps the map while `reconnecting`;
 - `AlertsCubit`: create absolute; create percentage (reference and target correct); reject percentage with no live price; delete; apply a trigger (moves active → triggered, enqueues notification); `acknowledge` dequeues.
 
-**`AlertRepository`** (real Hive box in a temp directory, no mocks)
+`AlertRepository` (real Hive box in a temp directory, no mocks)
 
 - save and load round-trip through the generated adapter, including enums and UTC dates;
 - status update persists `triggeredAt` and `triggeredPrice`;
@@ -775,6 +847,8 @@ Priority: domain logic first, then socket behaviour, then Cubits, then a few wid
 
 ---
 
+
+
 ## 17. Dependencies
 
 **Runtime:** `flutter_bloc`, `equatable`, `web_socket_channel`, `hive_ce`, `hive_ce_flutter`, `go_router`, `uuid`, `intl`.
@@ -789,11 +863,15 @@ Priority: domain logic first, then socket behaviour, then Cubits, then a few wid
 
 ---
 
+
+
 ## 18. Implementation phases
 
 Twelve phases. Each has one goal, leaves the app runnable, and can be reviewed on its own. Workflow per phase: implement → manual review → refactor → `flutter analyze` → next. The **Tests** line in each phase below is on hold (§16) and is skipped until the developer lifts the pause.
 
 ---
+
+
 
 ### Phase 1 — Project setup ✅ DONE
 
@@ -803,10 +881,12 @@ Dependencies, extra lints, `assets/instruments.json` registered, counter demo re
 
 ---
 
+
+
 ### Phase 2 — Core foundation: theme, config, errors, routing ✅ DONE
 
 - **Goal:** the skeleton every later phase plugs into.
-- **Files:** `core/theme/*`, `core/app_config.dart`, `core/errors.dart`, `app/router.dart`, `app/widgets/app_shell.dart`, `app/widgets/placeholder_page.dart`, `app/app.dart`.
+- **Files:** `core/theme/`*, `core/app_config.dart`, `core/errors.dart`, `app/router.dart`, `app/widgets/app_shell.dart`, `app/widgets/placeholder_page.dart`, `app/app.dart`.
 - **Tasks:** design tokens with placeholder values; `AppException` + `logError` (and point `bootstrap`'s handlers at it); `AppConfig`; `go_router` with `StatefulShellRoute.indexedStack`, `AppShell` with the three-tab `NavigationBar`, and a single reusable `PlaceholderPage` behind all five routes.
 - **Deviation:** `AppDependencies` moved to Phase 3. Nothing to compose yet — an empty class now would be an abstraction without a current reason (§23.2). It is created together with the first real dependency, `InstrumentRepository`.
 - **Result:** themed app, working bottom navigation, all five routes reachable.
@@ -815,10 +895,12 @@ Dependencies, extra lints, `assets/instruments.json` registered, counter demo re
 
 ---
 
+
+
 ### Phase 3 — Instruments: model, repository, list screen ✅ DONE
 
 - **Goal:** the Quotes tab renders the real instrument list (no live prices yet).
-- **Files:** `features/instruments/**`, `app/app_dependencies.dart`, `app/router.dart`.
+- **Files:** `features/instruments/`**, `app/app_dependencies.dart`, `app/router.dart`.
 - **Tasks:** `Instrument`; `InstrumentRepository` reading and decoding the asset (throws `AppException` on malformed JSON, caches the parsed list); `AppDependencies` (created here, holding its first real dependency) and the provider wiring in `App`; `InstrumentsCubit` + state (loading/success/failure/empty); `InstrumentsPage` with `ListView.builder`, `ValueKey(symbol)`, and `—` placeholders for Bid/Ask; `InstrumentTile`; swap the `/quotes` placeholder for the real page.
 - **Result:** a scrollable real list with empty/error/retry states.
 - **Tests:** parsing valid JSON; unknown `contractType` preserved, not dropped; malformed JSON → `AppException`; empty array → empty list; Cubit load success/failure/empty.
@@ -827,35 +909,42 @@ Dependencies, extra lints, `assets/instruments.json` registered, counter demo re
 
 ---
 
+
+
 ### Phase 4 — WebSocket: connection, subscriptions, reconnect ✅ DONE
 
 - **Goal:** one robust app-wide socket. **The most important technical phase.**
 - **Files:** `core/network/websocket_transport.dart`, `market_data_socket.dart`, `quote_parser.dart`, `features/quotes/domain/quote.dart`.
-- **Tasks:** `Quote` + `QuoteSide` + `priceFor`; `parseQuotes` returning `List<Quote>`; `WebSocketTransport` plus its one production implementation; `MarketDataSocket` with connect/subscribe/unsubscribe/reconnectNow/dispose, `_subscribedSymbols`, status stream, private backoff, subscription replay after reconnect, per-message `try/catch`; buffer subscribe calls made while disconnected and flush them on connect.
+- **Tasks:** `Quote` + `QuoteSide` + `priceFor`; `parseQuotes` returning `List<Quote>`; `WebSocketTransport` plus its one production implementation; `MarketDataSocket` with connect/subscribe/reconnectNow, `_subscribedSymbols`, status stream, private backoff, subscription replay after reconnect, per-message `try/catch`; buffer subscribe calls made while disconnected and flush them on connect.
 - **Result:** a socket testable without a server, with observable state transitions.
 - **Tests:** the `MarketDataSocket` list in §16.
-- **Pitfalls:** overlapping reconnect timers (one `Timer?` plus an `_isDisposed` flag); not cancelling the previous transport subscription before reconnecting (duplicate handlers — the classic bug); resubscribing before the connection reports open; `addError` on a stream the UI listens to; a non-broadcast controller that only allows one listener.
+- **Pitfalls:** overlapping reconnect timers (one `Timer?` is enough); not cancelling the previous transport subscription before reconnecting (duplicate handlers — the classic bug); resubscribing before the connection reports open; `addError` on a stream the UI listens to; a non-broadcast controller that only allows one listener.
 - **Note:** frame formats live only in `_buildSubscriptionFrame` and `parseQuotes`, which is what made swapping the guessed protocol for the real one (§5.0) a two-function change.
-- **Deviations:** subscribe and unsubscribe share one `_buildSubscriptionFrame(type, symbols)` instead of two near-identical builders; §21 updated. An `_isOpening` guard rejects a second connection attempt while one is in flight — without it, `reconnectNow()` during a pending `connect()` would leave two live transports. `_teardownConnection()` cancels the message subscription *before* closing the transport, so a planned teardown does not fire `onDone` and trigger a spurious reconnect. Backoff uses the failure count, which is reset both by `reconnectNow()` and by a connection that stays up for 10 s.
+- **Deviations:** an `_isOpening` guard rejects a second connection attempt while one is in flight — without it, `reconnectNow()` during a pending `connect()` would leave two live transports. `_teardownConnection()` cancels the message subscription *before* closing the transport, so a planned teardown does not fire `onDone` and trigger a spurious reconnect. Backoff uses the failure count, which is reset both by `reconnectNow()` and by a connection that stays up for 10 s.
 - **Simplification after review:** the parser takes `Object?` and accepts only `String` frames and JSON numbers; the pre-decoded-`Map` branch had no caller.
 - **No fake feed:** a `FakeTransport` generating a random walk was written here and removed during Phase 5 — the app ships one transport and an unreachable endpoint is just a failed connection (§5.5, §15). The test double returns under `test/helpers/` when the testing pause is lifted.
 - **Protocol rewritten in Phase 5:** the guessed `{"type":"subscribe","symbols":[…]}` / one-quote-per-frame shape was replaced by the real protocol once the endpoint was known (§5.0). `parseQuote` became `parseQuotes` returning a list, and `Quote.receivedAt` became `Quote.timestamp` carrying server time.
-- **Verified against the live endpoint:** connect, subscribe, quote parsing and `dispose()` were exercised by driving `MarketDataSocket` directly (no UI). The reconnect and backoff paths are still unverified — they need a forced drop, which is what the test double will provide.
+- **Verified against the live endpoint:** connect, subscribe and quote parsing were exercised by driving `MarketDataSocket` directly (no UI). The reconnect and backoff paths are still unverified — they need a forced drop, which is what the test double will provide.
+- **Teardown removed in the final review:** `dispose()`, the `_isDisposed` flag and every `isClosed` guard were deleted along with `unsubscribe()`. Nothing called them — the socket and its subscriptions live for the whole process — and an unreachable teardown path is unreachable code, not safety. With `unsubscribe()` gone, `_buildSubscriptionFrame` no longer needs a path parameter.
 
 ---
+
+
 
 ### Phase 5 — Live quotes end to end ✅ DONE
 
 - **Goal:** real-time Bid/Ask on the first screen.
-- **Files:** `features/quotes/data/quote_repository.dart`, `presentation/*`, `app/app_dependencies.dart`, `bootstrap.dart`, plus `InstrumentTile`.
+- **Files:** `features/quotes/data/quote_repository.dart`, `presentation/`*, `app/app_dependencies.dart`, `bootstrap.dart`, plus `InstrumentTile`.
 - **Tasks:** `QuoteRepository`; `QuotesCubit` + `QuotesState`; connect the socket in bootstrap; call `subscribeAll` when the instrument list loads; `PriceText`; `BlocSelector` per row; `ConnectionBanner` with "Retry now".
 - **Result:** the Quotes tab updates live; disconnecting shows the banner while keeping last known prices.
 - **Tests:** `parseQuotes` valid/invalid/partial frame/acknowledgement; `QuotesCubit` applies quotes, reacts to status, keeps the map while reconnecting; widget test that updating one symbol rebuilds only that row.
 - **Pitfalls:** `BlocBuilder` over the whole `QuotesState` in the page (rebuilds everything); clearing the map on disconnect; calling `subscribeAll` on every rebuild instead of once; formatting inside `build`.
 - **Deviations:** `AppDependencies` builds `QuoteRepository` itself from the socket it is given, so no caller can wire a repository to a different socket than the one it disposes. `QuotesCubit` seeds its initial status from `QuoteRepository.currentStatus`, because `bootstrap()` connects before the widget tree exists and the status stream would otherwise not replay. `InstrumentsPage` splits into the page (banner + list) and a private `_InstrumentsList`, so the banner is not rebuilt by instrument-list states. The `NumberFormat` instances in `price_text.dart` are top-level finals rather than created per `build`; precision switches at a price of 10 and carries the §21.11 TODO.
-- **`test/` removed here.** The Phase 3 tests stopped compiling once `InstrumentsCubit` took a second argument and `AppDependencies` required `marketDataSocket`. Rather than carry a broken suite through the testing pause (§16), the directory was deleted; the full set is written in one go when the pause is lifted. `flutter analyze` is clean again.
+- `test/` **removed here.** The Phase 3 tests stopped compiling once `InstrumentsCubit` took a second argument and `AppDependencies` required `marketDataSocket`. Rather than carry a broken suite through the testing pause (§16), the directory was deleted; the full set is written in one go when the pause is lifted. `flutter analyze` is clean again.
 
 ---
+
+
 
 ### Phase 6 — Instrument details ✅ DONE
 
@@ -871,6 +960,8 @@ Dependencies, extra lints, `assets/instruments.json` registered, counter demo re
 
 ---
 
+
+
 ### Phase 7 — Alert domain logic ✅ DONE
 
 - **Goal:** complete, fully tested alert logic — no UI, no persistence.
@@ -879,14 +970,16 @@ Dependencies, extra lints, `assets/instruments.json` registered, counter demo re
 - **Result:** alert logic proven by tests before any UI exists.
 - **Tests:** the `AlertEvaluator` and `AlertCoordinator` lists in §16.
 - **Pitfalls:** putting `_previous` inside the evaluator (destroys statelessness and testability); `>`/`<` instead of `>=`/`<=` on the current side; bid for reference and ask for evaluation; forgetting to filter by symbol or to skip already-triggered alerts; forgetting `roundPrice` on percentage targets.
-- **Deviations:** instead of a general `copyWith`, `PriceAlert` exposes `markTriggered(price:, at:)`. `ACTIVE → TRIGGERED` is the only transition an alert has — there is no editing (§20) — so a setter-shaped `copyWith` would advertise mutations the domain forbids. `DateTime`s are stored in UTC at construction, closing the §8 local-time pitfall in the model rather than in the Hive layer. The two factories throw `ArgumentError`, not `AppException`: reaching them with a zero target or a zero percentage is a programming error, while user input is rejected by the form in Phase 9.
+- **Deviations:** instead of a general `copyWith`, `PriceAlert` exposes `markTriggered(price:, at:)`. `ACTIVE → TRIGGERED` is the only transition an alert has — there is no editing (§20) — so a setter-shaped `copyWith` would advertise mutations the domain forbids. The two factories throw `ArgumentError`, not `AppException`: reaching them with a zero target or a zero percentage is a programming error, while user input is rejected by the form in Phase 9.
 - **Coordinator wiring deferred:** `AlertCoordinator` takes an `activeAlerts` callback and an `onTriggered` callback rather than an `AlertsCubit`, so it stays free of the presentation layer and is constructed in Phase 8 with `() => alertsCubit.state.activeAlerts` and `alertsCubit.onTriggered`. The temporary in-memory sink this phase originally planned was skipped — it would have been code written to be deleted one phase later. Each `onTriggered` call is wrapped in `try/catch` + `logError`, so one failing persist cannot abort the remaining alerts that crossed on the same tick.
 - **Verified without tests:** the testing pause holds, so the rules were exercised once through a throwaway script (since deleted) covering crossing up, exact-touch equality, no refire when already past the target, symbol filtering, side filtering, skipping triggered alerts, two alerts firing on one tick, the percentage target and direction for both signs, ask-side reference, and both validation throws. All passed.
 - **Plan correction found while verifying:** §4.1 justified `roundPrice` with `200 * 1.05 = 210.00000000000003`, which is false — that product is exact in IEEE-754. The rounding is still necessary; §4.1 now cites `100 * (1 + 10 / 100) = 110.00000000000001` and records how the real cases were found.
 
 ---
 
-### Phase 8 — Hive persistence and `AlertsCubit`
+
+
+### Phase 8 — Hive persistence and `AlertsCubit` ✅ DONE
 
 - **Goal:** alerts survive restarts, and the coordinator writes through a real repository.
 - **Files:** `features/alerts/data/hive_adapters.dart` (+ generated), `alert_repository.dart`, `presentation/alerts_cubit.dart`, `alerts_state.dart`, `bootstrap.dart`.
@@ -894,19 +987,38 @@ Dependencies, extra lints, `assets/instruments.json` registered, counter demo re
 - **Result:** creating an alert and restarting the app retains it; triggers persist.
 - **Tests:** the `AlertRepository` and `AlertsCubit` lists in §16.
 - **Pitfalls:** any `hive` import in `domain/`, a Cubit or a widget; registering adapters after opening the box; reordering `specs` entries or class fields later (§8.2); local-time `DateTime`s; showing a notification before persisting; a triggered alert still appearing in the active list.
+- **Deviations:** `loadAll()` is synchronous. The box is already open before `runApp`, so reading it is a memory operation — making it a `Future` would have bought nothing except a frame of empty state on every launch. `AlertsCubit` therefore restores its state in the constructor and has no loading status at all. Writes stay asynchronous, because `put` and `delete` really do touch the disk.
+- **In-memory fallback — added, then removed in the final review.** `openAlertsBox()` used to return `Box<PriceAlert>?` and `AlertRepository` held a nullable box, so that a device where Hive cannot open at all still ran with alerts in memory. It cost a null check in every method and an extra error message, for a failure mode that needs a broken filesystem to reach. The box is non-nullable now: recovery still deletes and reopens once, and if that throws, the launch fails.
+- **Optimistic writes:** create, delete and trigger emit the new state first and persist after. The user sees the result immediately, and a storage failure surfaces as `AlertsState.error` without rolling the change back — the §12 rule that a write failure never loses the in-memory change. `AlertsState.copyWith` deliberately does **not** carry `error` forward, so the next successful operation clears it.
+- **Coordinator wired here:** `_AppState` owns `AlertsCubit` and `AlertCoordinator`, provides the Cubit with `BlocProvider.value` and disposes both. The other two Cubits stay in `create:` callbacks; alerts are the exception because the coordinator needs the instance in order to close over `() => cubit.state.active` and `cubit.onTriggered`.
+- **Millisecond timestamps — measured, then dropped as unnecessary.** Hive stores `DateTime` as milliseconds, so `DateTime.now()`'s microseconds disappear on reload and a restored alert is not `==` to the one that was saved. Truncating timestamps at construction fixed that, but nothing in the app compares alerts by value — every lookup goes through `id` — so the helper was removed again as complexity without a payoff. Two consequences to know: a reloaded alert differs from its pre-save self below the millisecond, and timestamps are stored in local time. Neither is visible, because `hive_ce` uses `DateTimeWithTimezoneAdapter` and keeps the instant exact whichever zone it was written in. If value equality over a round trip ever matters — most likely in a persistence test — truncate to milliseconds in the constructor and it is settled again.
+- **Verified without tests:** a throwaway script (since deleted) opened a temp-dir box and checked that both alert kinds survive a close-and-reopen cycle and compare equal, that enums, nulls, the default status and the percentage target come back intact, and that `delete` removes exactly one record. All passed. `AlertsCubit` itself is still unexercised — it needs `flutter_test`, which the testing pause covers.
 
 ---
 
-### Phase 9 — Alert screens and global notification
+
+
+### Phase 9 — Alert screens and global notification ✅ DONE
 
 - **Goal:** the full alert loop, visible from anywhere.
-- **Files:** `features/alerts/presentation/*`, `app/widgets/alert_notification_host.dart`, `app/app.dart`.
+- **Files:** `features/alerts/presentation/`*, `app/widgets/alert_notification_host.dart`, `app/app.dart`.
 - **Tasks:** `AlertsPage` (tab 1), `AlertHistoryPage` (tab 2), `CreateAlertPage` at `/alerts/create` with optional `symbol`, instrument picker, live target preview, percentage disabled without a live price; `AlertTile` shared by both lists; `AlertNotificationHost` in the router's `builder`, driven by `pendingNotifications`.
 - **Result:** create → wait → trigger → banner → history works end to end against a live feed.
 - **Tests:** the alert-related widget tests in §16, the cross-tab notification test, and — now that every tab has real content — the tab-reachability and scroll-preservation test deferred from Phase 2.
 - **Pitfalls:** putting the listener inside a page (breaks the global requirement); re-showing a notification after a rebuild (the queue must be acknowledged); losing the pre-selected symbol when arriving from details.
+- `context.go` **does not work in the host.** `go_router` injects `InheritedGoRouter` *below* the Navigator it builds, while `MaterialApp.builder` runs *above* it — so `GoRouter.of(context)` throws there. `AlertNotificationHost` takes the `GoRouter` instance as a parameter instead. `ScaffoldMessenger.of(context)` is fine in the same place, because `MaterialApp` wraps the builder in one.
+- **No** `Tooltip` **above the Navigator either,** for the same structural reason: a tooltip needs an `Overlay`, and the only one comes from the Navigator below. The dismiss button carries a `semanticLabel` instead. This threw on every banner build until it was caught.
+- **Deviations:** shared text formatting (`alertCondition`, `alertOrigin`, `alertOutcome`) moved to `presentation/alert_text.dart` on its second consumer, so the tile and the notification cannot drift apart. `AlertsPage` and `AlertHistoryPage` use `buildWhen` on their own slice of the state, so a trigger arriving while the user is on History does not rebuild both lists. Tapping an alert calls `go`, not `push`: the details route belongs to the Quotes branch, so it switches tabs rather than stacking a second copy inside Alerts. `CreateAlertPage` shows the instrument as a locked label when it arrives with a symbol and a dropdown otherwise — that also avoids `DropdownButtonFormField` asserting on a value that is not among its items when the instrument list failed to load. Saving does not await persistence: the form pops immediately and a storage failure surfaces through the global host, which is precisely what a global host is for. `app/widgets/placeholder_page.dart` was deleted with its last usage.
+- **Verified without tests:** a throwaway `flutter test` run (file outside `test/`, since deleted) drove the real widget tree twice. First pass: the app boots, the Quotes tab lists instruments, the Alerts tab shows its empty state, the form opens, picking an instrument and typing `210` enables Save, switching to Percent disables it with the "needs a live Bid price" explanation, saving returns to a list showing `AAPL.US Bid ≥ 210.00`, and History is empty. Second pass: with the host mounted over an unrelated screen, a failed save raised the SnackBar, `onTriggered` put the banner on screen with the triggered price, and after five seconds it auto-dismissed, leaving the alert in `triggered` and the queue empty.
+- **Still unverified:** the end-to-end path against the live feed — an alert actually crossing a real quote. That needs a running app and market movement, so it belongs to the Phase 10 manual pass.
+- **Form revision (§7.3, §10.1):** direction is asked for only on percentage alerts; a price level derives its own direction from the live price, and both kinds now refuse to save without one. The value field is unsigned in both cases. A single preview line — "Triggers when Bid rises to 210.00 from 200.00" — replaced the percentage-only target preview, so the user sees the resulting condition before saving whichever kind they picked. `_instrumentField()` became a `_InstrumentField` widget, which also keeps the `InstrumentsCubit` rebuild inside it instead of around the whole form.
+- **Final sweep for unused API:** `AlertsCubit.clearError()` and `AppDependencies.dispose()` were written for callers that never appeared and are gone; `AlertsState.error` clears itself through `copyWith` on the next operation, which is all the app ever needed.
+- **Re-verified:** another throwaway run, this time with a scripted transport feeding `AAPL.US` at 200/200.50, produced `Bid ≥ 210.00` from a level of 210, `Bid ≤ 190.00` from 190, `Bid ≥ 210.00` from +5% Up, `Bid ≤ 190.00` with origin `-5% from 200.00` from 5% Down, and `Ask ≥ 210.00` once the side was switched — each with a matching preview line.
+- **For when tests return:** closing the socket's stream controllers hangs under `testWidgets` unless the call is wrapped in `tester.runAsync`, because it waits on real async work that the fake clock never advances. This is why the app has no teardown path at all now; a test that needs one has to add the wrapper.
 
 ---
+
+
 
 ### Phase 10 — Edge cases, error paths, performance check
 
@@ -918,20 +1030,23 @@ Dependencies, extra lints, `assets/instruments.json` registered, counter demo re
 
 ---
 
+
+
 ### Phase 11 — Final UI pass (Figma)
 
 - **Goal:** apply the real design by changing the design layer and presentational widgets only.
-- **Files:** `core/theme/**` and widgets. **No** changes to `domain/`, `data/` or Cubit logic — the diff proving that is the point.
+- **Files:** `core/theme/`** and widgets. **No** changes to `domain/`, `data/` or Cubit logic — the diff proving that is the point.
 - **Tasks:** real colours, typography, spacing; restyle `PriceText`, tiles, banner, notification, form; price-direction flash if the design calls for it.
 - **Tests:** update only the widget tests that asserted placeholder structure.
 - **Pitfalls:** business logic sneaking into styled widgets; hardcoded colours instead of tokens; animations that rebuild the whole list on every tick.
 
 ---
 
+
+
 ### Phase 12 — Cleanup and NOTES
 
 > `README.md` is written by the developer, not generated. No phase edits it.
-
 
 - **Goal:** a repository a reviewer can understand in ten minutes.
 - **Tasks:**
@@ -944,61 +1059,71 @@ Dependencies, extra lints, `assets/instruments.json` registered, counter demo re
 
 ---
 
+
+
 ## 19. Decision log
 
-| # | Decision | Why |
-| --- | --- | --- |
-| 1 | Cubit, not Bloc | Every interaction is a direct method call; no event sourcing or transformation to justify event classes |
-| 2 | One global WebSocket | Connections are expensive and rate-limited; the list needs all symbols; alerts must keep evaluating across navigation |
-| 3 | Many logical subscriptions over one socket | How market-data protocols work. Subscriptions are protocol state (a `Set<String>`), distinct from Dart stream listeners |
-| 4 | Subscribe to all instruments at startup | The first screen shows live Bid/Ask for every instrument, so all are needed immediately; one batched call avoids scroll-driven flicker |
-| 5 | Exponential backoff 1→2→4→8→16→30 s, no jitter | Recovers without user action; leaving jitter out keeps tests deterministic and matters little for a single client. Noted as a production consideration |
-| 6 | Automatic resubscription after reconnect | A new connection has no server-side subscription state; the socket owns the symbol set, so no other layer needs reconnect awareness |
-| 7 | Keep last known prices while disconnected | Stale-but-labelled beats blank. The map is never cleared; the banner makes staleness explicit |
-| 8 | Never guess alert triggers during a disconnect | The client cannot know what the market did. Evaluation resumes on observed quotes only |
-| 9 | Crossing-based triggering | Users care about events, not about a condition that was already true when they set the alert |
-| 10 | First observed quote is a baseline and never fires | One rule prevents both instant firing at creation and an alert storm on cold start |
-| 11 | Reference price from the selected side, target precomputed | "+5%" needs an anchor; taking it from the selected side keeps the threshold honest, and precomputing keeps evaluation to one comparison |
-| 12 | `double` with a rounded percentage target, not `Decimal` | The app compares and displays prices, it does not accumulate money. The one real float hazard is the percentage target, fixed by rounding once at creation. Scaled integers or `decimal` would be right if P&L were ever computed (§4.1) |
-| 13 | Generated Hive `TypeAdapter`s via `GenerateAdapters`, declared in the data layer | Idiomatic, efficient binary storage with no hand-written serialisation — and because `hive_ce` generates from a spec list rather than from annotations on the classes, the domain model stays free of Hive imports without needing a separate persistence model plus mapper |
-| 14 | One box for active + triggered, discriminated by `status` | Makes `ACTIVE → TRIGGERED` a single atomic write instead of a cross-box move that can half-fail |
-| 15 | One concrete repository per feature — no interface + impl + data source | There is exactly one implementation and `mocktail` mocks concrete classes, so the extra layers add indirection and no testability |
-| 16 | Separate `QuotesCubit` from `InstrumentsCubit` | Static list data and high-frequency quote data change at completely different rates; combining them rebuilds the list on every tick |
-| 17 | Pure, stateless `AlertEvaluator` with a separate coordinator | Keeps the rules testable as plain input→output, while the mutable previous-quote state lives in exactly one place that needs it |
-| 18 | Global alert host above the Navigator | `MaterialApp.router`'s `builder` makes notifications route-independent, so no page needs alert awareness |
-| 19 | `StatefulShellRoute.indexedStack` for the three tabs | Each tab keeps its own navigator and state; hand-rolling that means managing navigator keys manually |
-| 20 | Create alert as a full screen, not a bottom sheet | A validated multi-field form with an instrument picker deserves full height and an explicit Cancel/Save, with no nav bar to wander into |
-| 21 | No coalescing/throttling until measured | It is an optimisation, not architecture; building a buffering helper before knowing the tick rate solves an imaginary problem (§13) |
-| 22 | One `AppException` + one `logError`, no hierarchy | Nothing in the app branches on exception type; handling differs by catch site, which is already known there |
-| 23 | Explicit composition root instead of a DI framework | The dependency graph stays visible in one readable file |
+
+| #   | Decision                                                                         | Why                                                                                                                                                                                                                                                                         |
+| --- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Cubit, not Bloc                                                                  | Every interaction is a direct method call; no event sourcing or transformation to justify event classes                                                                                                                                                                     |
+| 2   | One global WebSocket                                                             | Connections are expensive and rate-limited; the list needs all symbols; alerts must keep evaluating across navigation                                                                                                                                                       |
+| 3   | Many logical subscriptions over one socket                                       | How market-data protocols work. Subscriptions are protocol state (a `Set<String>`), distinct from Dart stream listeners                                                                                                                                                     |
+| 4   | Subscribe to all instruments at startup                                          | The first screen shows live Bid/Ask for every instrument, so all are needed immediately; one batched call avoids scroll-driven flicker                                                                                                                                      |
+| 5   | Exponential backoff 1→2→4→8→16→30 s, no jitter                                   | Recovers without user action; leaving jitter out keeps tests deterministic and matters little for a single client. Noted as a production consideration                                                                                                                      |
+| 6   | Automatic resubscription after reconnect                                         | A new connection has no server-side subscription state; the socket owns the symbol set, so no other layer needs reconnect awareness                                                                                                                                         |
+| 7   | Keep last known prices while disconnected                                        | Stale-but-labelled beats blank. The map is never cleared; the banner makes staleness explicit                                                                                                                                                                               |
+| 8   | Never guess alert triggers during a disconnect                                   | The client cannot know what the market did. Evaluation resumes on observed quotes only                                                                                                                                                                                      |
+| 9   | Crossing-based triggering                                                        | Users care about events, not about a condition that was already true when they set the alert                                                                                                                                                                                |
+| 10  | First observed quote is a baseline and never fires                               | One rule prevents both instant firing at creation and an alert storm on cold start                                                                                                                                                                                          |
+| 11  | Reference price from the selected side, target precomputed                       | "+5%" needs an anchor; taking it from the selected side keeps the threshold honest, and precomputing keeps evaluation to one comparison                                                                                                                                     |
+| 12  | `double` with a rounded percentage target, not `Decimal`                         | The app compares and displays prices, it does not accumulate money. The one real float hazard is the percentage target, fixed by rounding once at creation. Scaled integers or `decimal` would be right if P&L were ever computed (§4.1)                                    |
+| 13  | Generated Hive `TypeAdapter`s via `GenerateAdapters`, declared in the data layer | Idiomatic, efficient binary storage with no hand-written serialisation — and because `hive_ce` generates from a spec list rather than from annotations on the classes, the domain model stays free of Hive imports without needing a separate persistence model plus mapper |
+| 14  | One box for active + triggered, discriminated by `status`                        | Makes `ACTIVE → TRIGGERED` a single atomic write instead of a cross-box move that can half-fail                                                                                                                                                                             |
+| 15  | One concrete repository per feature — no interface + impl + data source          | There is exactly one implementation and `mocktail` mocks concrete classes, so the extra layers add indirection and no testability                                                                                                                                           |
+| 16  | Separate `QuotesCubit` from `InstrumentsCubit`                                   | Static list data and high-frequency quote data change at completely different rates; combining them rebuilds the list on every tick                                                                                                                                         |
+| 17  | Pure, stateless `AlertEvaluator` with a separate coordinator                     | Keeps the rules testable as plain input→output, while the mutable previous-quote state lives in exactly one place that needs it                                                                                                                                             |
+| 18  | Global alert host above the Navigator                                            | `MaterialApp.router`'s `builder` makes notifications route-independent, so no page needs alert awareness                                                                                                                                                                    |
+| 19  | `StatefulShellRoute.indexedStack` for the three tabs                             | Each tab keeps its own navigator and state; hand-rolling that means managing navigator keys manually                                                                                                                                                                        |
+| 20  | Create alert as a full screen, not a bottom sheet                                | A validated multi-field form with an instrument picker deserves full height and an explicit Cancel/Save, with no nav bar to wander into                                                                                                                                     |
+| 21  | No coalescing/throttling until measured                                          | It is an optimisation, not architecture; building a buffering helper before knowing the tick rate solves an imaginary problem (§13)                                                                                                                                         |
+| 22  | One `AppException` + one `logError`, no hierarchy                                | Nothing in the app branches on exception type; handling differs by catch site, which is already known there                                                                                                                                                                 |
+| 23  | Explicit composition root instead of a DI framework                              | The dependency graph stays visible in one readable file                                                                                                                                                                                                                     |
+
 
 ---
 
+
+
 ## 20. What we intentionally do not build
 
-| Not built | Why |
-| --- | --- |
-| `UseCase`/`Interactor` per repository method | Cubits calling repositories directly is readable; wrapper classes would multiply files with no behaviour change |
-| Repository interfaces with a single implementation | Indirection without testability gain; `mocktail` mocks concrete classes |
-| Separate DTO + mapper layers | `InstrumentRepository` and `parseQuotes` produce domain objects directly; a mapper would just forward fields |
-| A `SocketEvent` union type | Only quotes matter; other messages are logged and dropped |
-| Custom stream coalescing helper | Optimisation without evidence (§13) |
-| Exception hierarchy, logging framework | Nothing branches on error type |
-| DI framework (`get_it`, `injectable`) | A composition root is clearer at this size |
-| `rxdart`, `freezed` | Plain `Stream` and `Equatable` + `copyWith` are enough |
-| Separate Hive persistence model + mapper | `GenerateAdapters` keeps the domain model annotation-free, so there is nothing to translate |
-| Migration framework | Append-only fields and reserved typeIds cover a handful of small objects |
-| Event bus | Dart `Stream`s already are the event system |
-| One WebSocket per instrument | Explicitly wrong for this protocol shape |
-| Isolates for JSON | Frames are tiny; overhead would likely exceed the gain |
-| Offline quote cache, historical storage | Not required; last-known in-memory values suffice |
-| Connectivity plugin, background execution | Backoff already recovers; the task needs no updates while suspended |
-| i18n, search, sorting, watchlists, charts | Not in the task; easy to add on top of this structure |
-| Pixel-perfect UI before the architecture works | Phase 11 exists for the real design |
+
+| Not built                                          | Why                                                                                                             |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `UseCase`/`Interactor` per repository method       | Cubits calling repositories directly is readable; wrapper classes would multiply files with no behaviour change |
+| Repository interfaces with a single implementation | Indirection without testability gain; `mocktail` mocks concrete classes                                         |
+| Separate DTO + mapper layers                       | `InstrumentRepository` and `parseQuotes` produce domain objects directly; a mapper would just forward fields    |
+| A `SocketEvent` union type                         | Only quotes matter; other messages are logged and dropped                                                       |
+| Custom stream coalescing helper                    | Optimisation without evidence (§13)                                                                             |
+| Exception hierarchy, logging framework             | Nothing branches on error type                                                                                  |
+| DI framework (`get_it`, `injectable`)              | A composition root is clearer at this size                                                                      |
+| `rxdart`, `freezed`                                | Plain `Stream` and `Equatable` + `copyWith` are enough                                                          |
+| Separate Hive persistence model + mapper           | `GenerateAdapters` keeps the domain model annotation-free, so there is nothing to translate                     |
+| Migration framework                                | Append-only fields and reserved typeIds cover a handful of small objects                                        |
+| Event bus                                          | Dart `Stream`s already are the event system                                                                     |
+| One WebSocket per instrument                       | Explicitly wrong for this protocol shape                                                                        |
+| Isolates for JSON                                  | Frames are tiny; overhead would likely exceed the gain                                                          |
+| Offline quote cache, historical storage            | Not required; last-known in-memory values suffice                                                               |
+| Connectivity plugin, background execution          | Backoff already recovers; the task needs no updates while suspended                                             |
+| i18n, search, sorting, watchlists, charts          | Not in the task; easy to add on top of this structure                                                           |
+| Pixel-perfect UI before the architecture works     | Phase 11 exists for the real design                                                                             |
+
 
 The line throughout: invest in correctness and separation where the task is judged — real-time handling, alert semantics, testability — and keep everything else boring.
 
 ---
+
+
 
 ## 21. Assumptions and open questions
 
@@ -1006,21 +1131,25 @@ Nothing here is invented as fact. Each is isolated so that confirming it changes
 
 **Items 1–6 are resolved.** The protocol is documented in §5.0 and was confirmed against the live endpoint in Phase 5: paths `/subscribe/addlist`, `/subscribe/removelist` and `/quotes/subscribed`, one frame carrying a list of `{s, b, a, t}` entries, batching supported, prices as JSON numbers, and `t` as Unix seconds — so `Quote.timestamp` now holds the **server** time rather than a local one. A partial frame is normal and needs no merging, because each entry carries both sides.
 
-| # | Question | Working assumption | Isolated in |
-| --- | --- | --- | --- |
-| 7 | Authentication | Not required — the endpoint accepts anonymous connections. A token would arrive via `--dart-define` and never be logged | `AppConfig`, `MarketDataSocket.connect` |
-| 8 | Heartbeat / ping-pong | None observed over a live session. If required, add a periodic ping and a pong timeout forcing reconnect — **TODO** | `MarketDataSocket` |
-| 9 | Instrument source | Assumed a bundled asset. An HTTP endpoint would replace the body of `InstrumentRepository` only | `InstrumentRepository` |
-| 10 | `contractType` code meanings | Unknown; the raw int is preserved and shown as-is | `Instrument` |
-| 11 | Decimal places per instrument | Not provided by the feed. `PriceText` formats everything with two decimals — a deliberate simplification. Low-priced instruments lose precision on screen (`ADAUSD 0.2234` renders as `0.22`) and appear static between ticks; alert thresholds are stored and compared at full precision regardless | `PriceText` |
-| 13 | Clock skew | "Updated N s ago" compares the server's `t` against the device clock. A badly set device clock would show nonsense; not compensated for | `Quote.timestamp` |
-| 12 | Alert re-arming | Assumed one-way `ACTIVE → TRIGGERED`, per the brief | `AlertsCubit` |
+
+| #   | Question                      | Working assumption                                                                                                                                                                                                                                                                                   | Isolated in                             |
+| --- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| 7   | Authentication                | Not required — the endpoint accepts anonymous connections. A token would arrive via `--dart-define` and never be logged                                                                                                                                                                              | `AppConfig`, `MarketDataSocket.connect` |
+| 8   | Heartbeat / ping-pong         | None observed over a live session. If required, add a periodic ping and a pong timeout forcing reconnect — **TODO**                                                                                                                                                                                  | `MarketDataSocket`                      |
+| 9   | Instrument source             | Assumed a bundled asset. An HTTP endpoint would replace the body of `InstrumentRepository` only                                                                                                                                                                                                      | `InstrumentRepository`                  |
+| 10  | `contractType` code meanings  | Unknown; the raw int is preserved and shown as-is                                                                                                                                                                                                                                                    | `Instrument`                            |
+| 11  | Decimal places per instrument | Not provided by the feed. `PriceText` formats everything with two decimals — a deliberate simplification. Low-priced instruments lose precision on screen (`ADAUSD 0.2234` renders as `0.22`) and appear static between ticks; alert thresholds are stored and compared at full precision regardless | `PriceText`                             |
+| 13  | Clock skew                    | "Updated N s ago" compares the server's `t` against the device clock. A badly set device clock would show nonsense; not compensated for                                                                                                                                                              | `Quote.timestamp`                       |
+| 12  | Alert re-arming               | Assumed one-way `ACTIVE → TRIGGERED`, per the brief                                                                                                                                                                                                                                                  | `AlertsCubit`                           |
+
 
 `assets/instruments.json` currently holds only the five instruments given as an example in the task; replacing it with the full list needs no code change.
 
 Items marked **TODO** must be resolved or explicitly recorded in `NOTES.md` before submission.
 
 ---
+
+
 
 ## 22. Learning goal
 
@@ -1029,6 +1158,8 @@ Alongside the functional requirements, this project is used to deepen hands-on e
 The emphasis is on validating design choices in practice — confirming that backoff and resubscription behave correctly under repeated failures, that crossing semantics hold under real tick sequences, and measuring whether the straightforward update path is fast enough before adding anything to it.
 
 ---
+
+
 
 ## 23. Simplicity principles
 
@@ -1045,6 +1176,8 @@ These govern every phase. When the plan and these rules disagree, these win.
 9. **Write code that explains itself; keep comments out of it.** No doc comments, no narration of what a class does — naming and structure carry that. The only comments allowed are short `TODO`s for genuinely deferred work (a crash reporter, a placeholder to delete, values awaiting the Figma design) and the rare one-liner stating a constraint the code cannot show. Rationale belongs in this document and in `NOTES.md`, not in the source.
 
 ---
+
+
 
 ## 24. Consistency checklist
 

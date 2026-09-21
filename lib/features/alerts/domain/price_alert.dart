@@ -50,7 +50,7 @@ class PriceAlert extends Equatable {
       direction: direction,
       kind: AlertKind.absolute,
       targetPrice: targetPrice,
-      createdAt: DateTime.now().toUtc(),
+      createdAt: DateTime.now(),
       referencePrice: referencePrice,
     );
   }
@@ -78,7 +78,7 @@ class PriceAlert extends Equatable {
       direction: percentage > 0 ? AlertDirection.above : AlertDirection.below,
       kind: AlertKind.percentage,
       targetPrice: roundPrice(referencePrice * (1 + percentage / 100)),
-      createdAt: DateTime.now().toUtc(),
+      createdAt: DateTime.now(),
       percentage: percentage,
       referencePrice: referencePrice,
     );
@@ -111,7 +111,7 @@ class PriceAlert extends Equatable {
       percentage: percentage,
       referencePrice: referencePrice,
       status: AlertStatus.triggered,
-      triggeredAt: at.toUtc(),
+      triggeredAt: at,
       triggeredPrice: price,
     );
   }

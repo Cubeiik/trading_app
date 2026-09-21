@@ -1,10 +1,12 @@
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
-import '../features/instruments/presentation/instrument_details_page.dart';
-import '../features/instruments/presentation/instruments_page.dart';
+import '../features/alerts/presentation/screens/alert_history_page.dart';
+import '../features/alerts/presentation/screens/alerts_page.dart';
+import '../features/alerts/presentation/screens/create_alert_page.dart';
+import '../features/instruments/presentation/screens/instrument_details_page.dart';
+import '../features/instruments/presentation/screens/instruments_page.dart';
 import 'widgets/app_shell.dart';
-import 'widgets/placeholder_page.dart';
 
 abstract final class Routes {
   static const quotes = '/quotes';
@@ -33,9 +35,7 @@ GoRouter createRouter() {
                 routes: [
                   GoRoute(
                     path: ':symbol',
-                    builder: (context, state) => InstrumentDetailsPage(
-                      symbol: state.pathParameters['symbol']!,
-                    ),
+                    builder: (context, state) => InstrumentDetailsPage(symbol: state.pathParameters['symbol']!),
                   ),
                 ],
               ),
@@ -45,36 +45,19 @@ GoRouter createRouter() {
             routes: [
               GoRoute(
                 path: Routes.alerts,
-                builder: (context, state) => const PlaceholderPage(
-                  title: 'Alerts',
-                  detail: 'Active alerts — phase 9.',
-                ),
+                builder: (context, state) => const AlertsPage(),
                 routes: [
                   GoRoute(
                     path: 'create',
-                    // Renders above the shell, so the form covers the nav bar.
                     parentNavigatorKey: rootNavigatorKey,
-                    builder: (context, state) => PlaceholderPage(
-                      title: 'Create alert',
-                      detail:
-                          'Alert form — phase 9. '
-                          'symbol=${state.uri.queryParameters['symbol'] ?? '-'}',
-                    ),
+                    builder: (context, state) => CreateAlertPage(symbol: state.uri.queryParameters['symbol']),
                   ),
                 ],
               ),
             ],
           ),
           StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: Routes.history,
-                builder: (context, state) => const PlaceholderPage(
-                  title: 'History',
-                  detail: 'Triggered alerts — phase 9.',
-                ),
-              ),
-            ],
+            routes: [GoRoute(path: Routes.history, builder: (context, state) => const AlertHistoryPage())],
           ),
         ],
       ),

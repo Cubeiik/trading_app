@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../app/widgets/message_view.dart';
-import '../../quotes/presentation/widgets/connection_banner.dart';
-import 'instruments_cubit.dart';
-import 'instruments_state.dart';
-import 'widgets/instrument_tile.dart';
+import '../../../../app/widgets/message_view.dart';
+import '../../../quotes/presentation/widgets/connection_banner.dart';
+import '../cubit/instruments_cubit.dart';
+import '../cubit/instruments_state.dart';
+import '../widgets/instrument_tile.dart';
 
 class InstrumentsPage extends StatelessWidget {
   const InstrumentsPage({super.key});
@@ -48,10 +48,7 @@ class _InstrumentsList extends StatelessWidget {
               itemCount: state.instruments.length,
               itemBuilder: (context, index) {
                 final instrument = state.instruments[index];
-                return InstrumentTile(
-                  key: ValueKey(instrument.symbol),
-                  instrument: instrument,
-                );
+                return InstrumentTile(key: ValueKey(instrument.symbol), instrument: instrument);
               },
             );
         }

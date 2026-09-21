@@ -5,8 +5,8 @@ import '../../../../core/network/market_data_socket.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_text_styles.dart';
-import '../quotes_cubit.dart';
-import '../quotes_state.dart';
+import '../cubit/quotes_cubit.dart';
+import '../cubit/quotes_state.dart';
 
 class ConnectionBanner extends StatelessWidget {
   const ConnectionBanner({super.key});
@@ -23,20 +23,12 @@ class ConnectionBanner extends StatelessWidget {
         return Container(
           width: double.infinity,
           color: AppColors.statusWarning,
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.m,
-            vertical: AppSpacing.s,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: AppSpacing.s),
           child: Row(
             children: [
-              Expanded(
-                child: Text(_messageFor(status), style: AppTextStyles.caption),
-              ),
+              Expanded(child: Text(_messageFor(status), style: AppTextStyles.caption)),
               if (status != ConnectionStatus.connecting)
-                TextButton(
-                  onPressed: () => context.read<QuotesCubit>().reconnectNow(),
-                  child: const Text('Retry now'),
-                ),
+                TextButton(onPressed: () => context.read<QuotesCubit>().reconnectNow(), child: const Text('Retry now')),
             ],
           ),
         );

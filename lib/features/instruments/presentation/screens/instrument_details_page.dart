@@ -2,18 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../app/router.dart';
-import '../../../app/widgets/message_view.dart';
-import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_text_styles.dart';
-import '../../quotes/domain/quote.dart';
-import '../../quotes/presentation/quotes_cubit.dart';
-import '../../quotes/presentation/quotes_state.dart';
-import '../../quotes/presentation/widgets/connection_banner.dart';
-import '../../quotes/presentation/widgets/price_text.dart';
-import '../domain/instrument.dart';
-import 'instruments_cubit.dart';
-import 'instruments_state.dart';
+import '../../../../app/router.dart';
+import '../../../../app/widgets/message_view.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/app_text_styles.dart';
+import '../../../quotes/domain/quote.dart';
+import '../../../quotes/presentation/cubit/quotes_cubit.dart';
+import '../../../quotes/presentation/cubit/quotes_state.dart';
+import '../../../quotes/presentation/widgets/connection_banner.dart';
+import '../../../quotes/presentation/widgets/price_text.dart';
+import '../../domain/instrument.dart';
+import '../cubit/instruments_cubit.dart';
+import '../cubit/instruments_state.dart';
 
 class InstrumentDetailsPage extends StatefulWidget {
   const InstrumentDetailsPage({required this.symbol, super.key});

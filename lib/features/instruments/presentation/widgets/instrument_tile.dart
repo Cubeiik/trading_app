@@ -6,8 +6,8 @@ import '../../../../app/router.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../quotes/domain/quote.dart';
-import '../../../quotes/presentation/quotes_cubit.dart';
-import '../../../quotes/presentation/quotes_state.dart';
+import '../../../quotes/presentation/cubit/quotes_cubit.dart';
+import '../../../quotes/presentation/cubit/quotes_state.dart';
 import '../../../quotes/presentation/widgets/price_text.dart';
 import '../../domain/instrument.dart';
 
@@ -21,10 +21,7 @@ class InstrumentTile extends StatelessWidget {
     return InkWell(
       onTap: () => context.push(Routes.instrumentDetails(instrument.symbol)),
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.m,
-          vertical: AppSpacing.s,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: AppSpacing.s),
         child: Row(
           children: [
             Expanded(
@@ -33,10 +30,7 @@ class InstrumentTile extends StatelessWidget {
                 children: [
                   Text(instrument.symbol, style: AppTextStyles.symbolLabel),
                   const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    'Type ${instrument.contractType}',
-                    style: AppTextStyles.caption,
-                  ),
+                  Text('Type ${instrument.contractType}', style: AppTextStyles.caption),
                 ],
               ),
             ),
