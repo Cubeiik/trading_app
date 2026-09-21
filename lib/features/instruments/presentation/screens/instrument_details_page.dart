@@ -1,8 +1,11 @@
+import 'package:chart_sparkline/chart_sparkline.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
+import 'package:trading_app/app/widgets/custom_button.dart';
+import 'package:trading_app/app/router/custom_router.dart';
+import 'package:trading_app/core/theme/app_colors.dart';
 
-import '../../../../app/router.dart';
+import '../../../../app/widgets/custom_app_bar.dart';
 import '../../../../app/widgets/message_view.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_text_styles.dart';
@@ -34,7 +37,7 @@ class _InstrumentDetailsPageState extends State<InstrumentDetailsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.symbol)),
+      appBar: const CustomAppBar(title: 'Instrument details'),
       body: Column(
         children: [
           const ConnectionBanner(),
@@ -50,15 +53,11 @@ class _InstrumentDetailsPageState extends State<InstrumentDetailsPage> {
                 switch (state.status) {
                   case InstrumentsStatus.failure:
                     return MessageView(
-                      message:
-                          state.error ?? 'Could not load the instrument list.',
+                      message: state.error ?? 'Could not load the instrument list.',
                       onRetry: () => context.read<InstrumentsCubit>().load(),
                     );
                   case InstrumentsStatus.success:
-                    return MessageView(
-                      message:
-                          '${widget.symbol} is not on the instrument list.',
-                    );
+                    return MessageView(message: '${widget.symbol} is not on the instrument list.');
                   case InstrumentsStatus.initial:
                   case InstrumentsStatus.loading:
                     return const Center(child: CircularProgressIndicator());
@@ -88,19 +87,26 @@ class _Details extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(AppSpacing.m),
-      children: [
-        _LivePrices(symbol: instrument.symbol),
-        const SizedBox(height: AppSpacing.l),
-        _DetailRow(label: 'Symbol', value: instrument.symbol),
-        const SizedBox(height: AppSpacing.l),
-        FilledButton(
-          onPressed: () =>
-              context.push('${Routes.createAlert}?symbol=${instrument.symbol}'),
-          child: const Text('Create alert'),
-        ),
-      ],
+    return BlocSelector<QuotesCubit, QuotesState, bool>(
+      selector: (state) => state.isLive && state.quotes.containsKey(instrument.symbol),
+      builder: (context, isLive) => ListView(
+        padding: const EdgeInsets.all(AppSpacing.m),
+        children: [
+          Text(instrument.symbol, style: AppTextStyles.priceHeadline),
+          const SizedBox(height: AppSpacing.l),
+
+          _LivePrices(symbol: instrument.symbol),
+          const SizedBox(height: AppSpacing.l),
+          _DetailRow(symbol: instrument.symbol, isLive: isLive),
+          const SizedBox(height: AppSpacing.l),
+          CustomButton(
+            onPressed: () => CustomRouter.push(context, RouteScreens.createAlert, symbol: instrument.symbol),
+            height: 48,
+            isDisabled: !isLive,
+            child: const Text('Create Price Alert'),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -130,9 +136,7 @@ class _LivePrices extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.s),
           Text(
-            quote == null
-                ? 'Waiting for the first quote'
-                : 'Updated ${_formatAge(quote.timestamp)}',
+            quote == null ? 'Waiting for the first quote' : 'Updated ${_formatAge(quote.timestamp)}',
             style: AppTextStyles.caption,
           ),
         ],
@@ -149,32 +153,111 @@ class _PriceBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: AppTextStyles.caption),
-        const SizedBox(height: AppSpacing.xs),
-        PriceText(price: price, style: AppTextStyles.priceHeadline),
-      ],
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.secondaryBackground,
+        borderRadius: BorderRadius.circular(AppSpacing.m),
+        border: Border.all(color: AppColors.stroke),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: AppSpacing.m),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: AppTextStyles.caption),
+          const SizedBox(height: AppSpacing.xs),
+          PriceText(
+            price: price,
+            style: AppTextStyles.headline.copyWith(fontSize: 26, height: 1.0, letterSpacing: 0.0),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value});
+class _DetailRow extends StatefulWidget {
+  const _DetailRow({required this.symbol, required this.isLive});
 
-  final String label;
-  final String value;
+  final String symbol;
+  final bool isLive;
+  @override
+  State<_DetailRow> createState() => _DetailRowState();
+}
+
+class _DetailRowState extends State<_DetailRow> {
+  static const _maxPoints = 80;
+
+  final List<double> _prices = [];
+  DateTime? _lastTimestamp;
+
+  @override
+  void initState() {
+    super.initState();
+    _append(context.read<QuotesCubit>().state.quotes[widget.symbol]);
+  }
+
+  void _append(Quote? quote) {
+    if (quote == null || quote.timestamp == _lastTimestamp) {
+      return;
+    }
+    _lastTimestamp = quote.timestamp;
+    _prices.add((quote.bid + quote.ask) / 2);
+    if (_prices.length > _maxPoints) {
+      _prices.removeAt(0);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.s),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return BlocListener<QuotesCubit, QuotesState>(
+      listenWhen: (previous, current) => previous.quotes[widget.symbol] != current.quotes[widget.symbol],
+      listener: (context, state) {
+        final before = _prices.length;
+        _append(state.quotes[widget.symbol]);
+        if (_prices.length != before) {
+          setState(() {});
+        }
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: AppTextStyles.caption),
-          Text(value, style: AppTextStyles.symbolLabel),
+          Row(
+            children: [
+              Container(
+                height: 10,
+                width: 10,
+                decoration: BoxDecoration(
+                  color: widget.isLive ? AppColors.priceUp : AppColors.tertiaryText,
+                  borderRadius: BorderRadius.circular(AppSpacing.m),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.s),
+              Text(
+                widget.isLive ? 'Live price movement' : 'Waiting for live ticks',
+                style: AppTextStyles.symbolLabel.copyWith(color: AppColors.secondaryText),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.s),
+          Container(
+            height: 140,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: AppColors.secondaryBackground,
+              borderRadius: BorderRadius.circular(AppSpacing.m),
+              border: Border.all(color: AppColors.stroke),
+            ),
+            padding: const EdgeInsets.all(AppSpacing.m),
+            child: _prices.length < 2
+                ? const Center(child: Text('Waiting for live ticks', style: AppTextStyles.caption))
+                : Sparkline(
+                    data: _prices,
+                    lineColor: AppColors.lightBlue,
+                    fillMode: FillMode.below,
+                    fillColor: AppColors.lightBlue.withValues(alpha: 0.12),
+                    sharpCorners: false,
+                  ),
+          ),
         ],
       ),
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/theme/app_colors.dart';
 
 final _formats = <int, NumberFormat>{};
 
@@ -21,15 +22,38 @@ String formatPrice(double price) {
   return format.format(price);
 }
 
-class PriceText extends StatelessWidget {
+class PriceText extends StatefulWidget {
   const PriceText({required this.price, this.style, super.key});
 
   final double? price;
   final TextStyle? style;
 
   @override
+  State<PriceText> createState() => _PriceTextState();
+}
+
+class _PriceTextState extends State<PriceText> {
+  Color _color = AppColors.primaryText;
+
+  @override
+  void didUpdateWidget(covariant PriceText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final previous = oldWidget.price;
+    final current = widget.price;
+    if (previous == null || current == null) return;
+    if (current > previous) {
+      _color = AppColors.priceUp;
+    } else if (current < previous) {
+      _color = AppColors.priceDown;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final value = price;
-    return Text(value == null ? '—' : formatPrice(value), style: style ?? AppTextStyles.priceCell);
+    final value = widget.price;
+    return Text(
+      value == null ? '—' : formatPrice(value),
+      style: (widget.style ?? AppTextStyles.priceCell).copyWith(color: _color),
+    );
   }
 }

@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:trading_app/app/widgets/custom_floating_action_button.dart';
+import 'package:trading_app/app/router/custom_router.dart';
 
+import '../../../../app/widgets/custom_app_bar.dart';
 import '../../../../app/widgets/message_view.dart';
 import '../../../quotes/presentation/widgets/connection_banner.dart';
 import '../cubit/instruments_cubit.dart';
 import '../cubit/instruments_state.dart';
 import '../widgets/instrument_tile.dart';
+import '../../../../core/theme/app_spacing.dart';
 
 class InstrumentsPage extends StatelessWidget {
   const InstrumentsPage({super.key});
@@ -13,7 +17,13 @@ class InstrumentsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Quotes')),
+      appBar: const CustomAppBar(title: 'Live Instruments'),
+      floatingActionButton: CustomFloatingActionButton(
+        heroTag: 'instruments-new-alert',
+        onPressed: () => CustomRouter.push(context, RouteScreens.createAlert),
+        label: 'New alert',
+        icon: Icons.add,
+      ),
       body: const Column(
         children: [
           ConnectionBanner(),
@@ -46,9 +56,20 @@ class _InstrumentsList extends StatelessWidget {
             }
             return ListView.builder(
               itemCount: state.instruments.length,
+              physics: const BouncingScrollPhysics(),
               itemBuilder: (context, index) {
                 final instrument = state.instruments[index];
-                return InstrumentTile(key: ValueKey(instrument.symbol), instrument: instrument);
+                final isFirst = index == 0;
+                final isLast = index == state.instruments.length - 1;
+                return Padding(
+                  padding: EdgeInsets.only(
+                    left: AppSpacing.l,
+                    right: AppSpacing.l,
+                    bottom: isLast ? AppSpacing.m : AppSpacing.s,
+                    top: isFirst ? AppSpacing.m : 0,
+                  ),
+                  child: InstrumentTile(key: ValueKey(instrument.symbol), instrument: instrument),
+                );
               },
             );
         }

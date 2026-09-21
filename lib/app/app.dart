@@ -11,7 +11,7 @@ import '../features/instruments/presentation/cubit/instruments_cubit.dart';
 import '../features/quotes/presentation/cubit/quotes_cubit.dart';
 import 'alert_coordinator.dart';
 import 'app_dependencies.dart';
-import 'router.dart';
+import 'router/router.dart';
 import 'widgets/alert_notification_host.dart';
 
 class App extends StatefulWidget {
@@ -65,10 +65,7 @@ class _AppState extends State<App> {
       providers: [
         BlocProvider(create: (_) => QuotesCubit(dependencies.quoteRepository)),
         BlocProvider(
-          create: (_) => InstrumentsCubit(
-            dependencies.instrumentRepository,
-            dependencies.quoteRepository,
-          )..load(),
+          create: (_) => InstrumentsCubit(dependencies.instrumentRepository, dependencies.quoteRepository)..load(),
         ),
         BlocProvider.value(value: _alertsCubit),
       ],
@@ -76,10 +73,7 @@ class _AppState extends State<App> {
         title: 'Trading App',
         theme: AppTheme.light,
         routerConfig: _router,
-        builder: (context, child) => AlertNotificationHost(
-          router: _router,
-          child: child ?? const SizedBox.shrink(),
-        ),
+        builder: (context, child) => AlertNotificationHost(router: _router, child: child ?? const SizedBox.shrink()),
       ),
     );
   }
