@@ -23,12 +23,20 @@ class ConnectionBanner extends StatelessWidget {
         return Container(
           width: double.infinity,
           color: AppColors.statusWarning,
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: AppSpacing.s),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.m,
+            vertical: AppSpacing.s,
+          ),
           child: Row(
             children: [
-              Expanded(child: Text(_messageFor(status), style: AppTextStyles.caption)),
+              Expanded(
+                child: Text(_messageFor(status), style: AppTextStyles.caption),
+              ),
               if (status != ConnectionStatus.connecting)
-                TextButton(onPressed: () => context.read<QuotesCubit>().reconnectNow(), child: const Text('Retry now')),
+                TextButton(
+                  onPressed: () => context.read<QuotesCubit>().reconnectNow(),
+                  child: const Text('Retry now'),
+                ),
             ],
           ),
         );

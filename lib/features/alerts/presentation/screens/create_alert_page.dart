@@ -60,7 +60,11 @@ class _CreateAlertPageState extends State<CreateAlertPage> {
           return ListView(
             padding: const EdgeInsets.all(AppSpacing.m),
             children: [
-              _InstrumentField(lockedSymbol: widget.symbol, selected: _symbol, onChanged: _selectSymbol),
+              _InstrumentField(
+                lockedSymbol: widget.symbol,
+                selected: _symbol,
+                onChanged: _selectSymbol,
+              ),
               const SizedBox(height: AppSpacing.m),
               _LivePrice(quote: quote, side: _side),
               const SizedBox(height: AppSpacing.l),
@@ -72,18 +76,26 @@ class _CreateAlertPageState extends State<CreateAlertPage> {
                     ButtonSegment(value: QuoteSide.ask, label: Text('Ask')),
                   ],
                   selected: {_side},
-                  onSelectionChanged: (selection) => setState(() => _side = selection.first),
+                  onSelectionChanged: (selection) =>
+                      setState(() => _side = selection.first),
                 ),
               ),
               _Section(
                 label: 'Type',
                 child: SegmentedButton<AlertKind>(
                   segments: const [
-                    ButtonSegment(value: AlertKind.absolute, label: Text('Price')),
-                    ButtonSegment(value: AlertKind.percentage, label: Text('Percent')),
+                    ButtonSegment(
+                      value: AlertKind.absolute,
+                      label: Text('Price'),
+                    ),
+                    ButtonSegment(
+                      value: AlertKind.percentage,
+                      label: Text('Percent'),
+                    ),
                   ],
                   selected: {_kind},
-                  onSelectionChanged: (selection) => setState(() => _kind = selection.first),
+                  onSelectionChanged: (selection) =>
+                      setState(() => _kind = selection.first),
                 ),
               ),
               if (_kind == AlertKind.percentage)
@@ -91,19 +103,30 @@ class _CreateAlertPageState extends State<CreateAlertPage> {
                   label: 'Direction',
                   child: SegmentedButton<AlertDirection>(
                     segments: const [
-                      ButtonSegment(value: AlertDirection.above, label: Text('Up')),
-                      ButtonSegment(value: AlertDirection.below, label: Text('Down')),
+                      ButtonSegment(
+                        value: AlertDirection.above,
+                        label: Text('Up'),
+                      ),
+                      ButtonSegment(
+                        value: AlertDirection.below,
+                        label: Text('Down'),
+                      ),
                     ],
                     selected: {_direction},
-                    onSelectionChanged: (selection) => setState(() => _direction = selection.first),
+                    onSelectionChanged: (selection) =>
+                        setState(() => _direction = selection.first),
                   ),
                 ),
               _Section(
-                label: _kind == AlertKind.absolute ? 'Price level to reach' : 'Change in percent',
+                label: _kind == AlertKind.absolute
+                    ? 'Price level to reach'
+                    : 'Change in percent',
                 child: TextField(
                   controller: _valueController,
                   autofocus: true,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   decoration: InputDecoration(
                     border: const OutlineInputBorder(),
                     hintText: _kind == AlertKind.absolute ? '210.00' : '5',
@@ -112,10 +135,16 @@ class _CreateAlertPageState extends State<CreateAlertPage> {
                   onChanged: (_) => setState(() {}),
                 ),
               ),
-              if (blocker == null) Text(_preview(reference!, value!), style: AppTextStyles.caption),
+              if (blocker == null)
+                Text(
+                  _preview(reference!, value!),
+                  style: AppTextStyles.caption,
+                ),
               const SizedBox(height: AppSpacing.l),
               FilledButton(
-                onPressed: blocker == null ? () => _save(reference!, value!) : null,
+                onPressed: blocker == null
+                    ? () => _save(reference!, value!)
+                    : null,
                 child: const Text('Save alert'),
               ),
               if (blocker != null) ...[
@@ -136,24 +165,34 @@ class _CreateAlertPageState extends State<CreateAlertPage> {
     }
   }
 
-  double? get _parsedValue => double.tryParse(_valueController.text.trim().replaceAll(',', '.'));
+  double? get _parsedValue =>
+      double.tryParse(_valueController.text.trim().replaceAll(',', '.'));
 
-  double _signedPercentage(double value) => _direction == AlertDirection.above ? value : -value;
+  double _signedPercentage(double value) =>
+      _direction == AlertDirection.above ? value : -value;
 
   double _targetFor(double reference, double value) =>
-      _kind == AlertKind.absolute ? value : roundPrice(reference * (1 + _signedPercentage(value) / 100));
+      _kind == AlertKind.absolute
+      ? value
+      : roundPrice(reference * (1 + _signedPercentage(value) / 100));
 
   String? _blocker(double? reference, double? value) {
     if (_symbol == null) {
       return 'Select an instrument first.';
     }
     if (_valueController.text.trim().isEmpty) {
-      return _kind == AlertKind.absolute ? 'Enter the price level to reach.' : 'Enter the change in percent.';
+      return _kind == AlertKind.absolute
+          ? 'Enter the price level to reach.'
+          : 'Enter the change in percent.';
     }
     if (value == null || !value.isFinite || value <= 0) {
-      return _kind == AlertKind.absolute ? 'Enter a price above zero.' : 'Enter a percentage above zero.';
+      return _kind == AlertKind.absolute
+          ? 'Enter a price above zero.'
+          : 'Enter a percentage above zero.';
     }
-    if (_kind == AlertKind.percentage && _direction == AlertDirection.below && value >= 100) {
+    if (_kind == AlertKind.percentage &&
+        _direction == AlertDirection.below &&
+        value >= 100) {
       return 'A drop cannot reach 100%.';
     }
     if (reference == null) {
@@ -180,7 +219,9 @@ class _CreateAlertPageState extends State<CreateAlertPage> {
             symbol: symbol,
             side: _side,
             // The level itself says which way the price has to move.
-            direction: value > reference ? AlertDirection.above : AlertDirection.below,
+            direction: value > reference
+                ? AlertDirection.above
+                : AlertDirection.below,
             targetPrice: value,
             referencePrice: reference,
           )
@@ -197,7 +238,11 @@ class _CreateAlertPageState extends State<CreateAlertPage> {
 }
 
 class _InstrumentField extends StatelessWidget {
-  const _InstrumentField({required this.lockedSymbol, required this.selected, required this.onChanged});
+  const _InstrumentField({
+    required this.lockedSymbol,
+    required this.selected,
+    required this.onChanged,
+  });
 
   final String? lockedSymbol;
   final String? selected;
@@ -222,7 +267,10 @@ class _InstrumentField extends StatelessWidget {
           hint: const Text('Select an instrument'),
           items: [
             for (final instrument in state.instruments)
-              DropdownMenuItem(value: instrument.symbol, child: Text(instrument.symbol)),
+              DropdownMenuItem(
+                value: instrument.symbol,
+                child: Text(instrument.symbol),
+              ),
           ],
           onChanged: onChanged,
         ),
@@ -246,7 +294,10 @@ class _LivePrice extends StatelessWidget {
         Text('Live ${sideLabel(side)}', style: AppTextStyles.caption),
         const SizedBox(width: AppSpacing.s),
         if (price == null)
-          const Text('waiting for the first quote', style: AppTextStyles.caption)
+          const Text(
+            'waiting for the first quote',
+            style: AppTextStyles.caption,
+          )
         else
           PriceText(price: price),
       ],

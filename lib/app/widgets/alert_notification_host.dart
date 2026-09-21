@@ -15,7 +15,11 @@ import '../router.dart';
 const _visibleFor = Duration(seconds: 5);
 
 class AlertNotificationHost extends StatefulWidget {
-  const AlertNotificationHost({required this.router, required this.child, super.key});
+  const AlertNotificationHost({
+    required this.router,
+    required this.child,
+    super.key,
+  });
 
   // The host sits in MaterialApp's builder, above the Navigator that provides
   // InheritedGoRouter, so context.go() is not available here.
@@ -40,11 +44,13 @@ class _AlertNotificationHostState extends State<AlertNotificationHost> {
     return MultiBlocListener(
       listeners: [
         BlocListener<AlertsCubit, AlertsState>(
-          listenWhen: (previous, current) => _firstOf(previous)?.id != _firstOf(current)?.id,
+          listenWhen: (previous, current) =>
+              _firstOf(previous)?.id != _firstOf(current)?.id,
           listener: (context, state) => _scheduleDismiss(_firstOf(state)),
         ),
         BlocListener<AlertsCubit, AlertsState>(
-          listenWhen: (previous, current) => previous.error != current.error && current.error != null,
+          listenWhen: (previous, current) =>
+              previous.error != current.error && current.error != null,
           listener: (context, state) {
             ScaffoldMessenger.of(context)
               ..clearSnackBars()
@@ -66,7 +72,8 @@ class _AlertNotificationHostState extends State<AlertNotificationHost> {
                   ? const SizedBox.shrink()
                   : _Notification(
                       alert: alert,
-                      onDismiss: () => context.read<AlertsCubit>().acknowledge(alert.id),
+                      onDismiss: () =>
+                          context.read<AlertsCubit>().acknowledge(alert.id),
                       onOpenHistory: () {
                         context.read<AlertsCubit>().acknowledge(alert.id);
                         widget.router.go(Routes.history);
@@ -80,7 +87,9 @@ class _AlertNotificationHostState extends State<AlertNotificationHost> {
   }
 
   static PriceAlert? _firstOf(AlertsState state) =>
-      state.pendingNotifications.isEmpty ? null : state.pendingNotifications.first;
+      state.pendingNotifications.isEmpty
+      ? null
+      : state.pendingNotifications.first;
 
   void _scheduleDismiss(PriceAlert? alert) {
     _dismissTimer?.cancel();
@@ -88,12 +97,19 @@ class _AlertNotificationHostState extends State<AlertNotificationHost> {
       return;
     }
 
-    _dismissTimer = Timer(_visibleFor, () => context.read<AlertsCubit>().acknowledge(alert.id));
+    _dismissTimer = Timer(
+      _visibleFor,
+      () => context.read<AlertsCubit>().acknowledge(alert.id),
+    );
   }
 }
 
 class _Notification extends StatelessWidget {
-  const _Notification({required this.alert, required this.onDismiss, required this.onOpenHistory});
+  const _Notification({
+    required this.alert,
+    required this.onDismiss,
+    required this.onOpenHistory,
+  });
 
   final PriceAlert alert;
   final VoidCallback onDismiss;
@@ -122,12 +138,16 @@ class _Notification extends StatelessWidget {
                       children: [
                         Text(
                           '${alert.symbol} ${alertCondition(alert)}',
-                          style: AppTextStyles.symbolLabel.copyWith(color: colors.onInverseSurface),
+                          style: AppTextStyles.symbolLabel.copyWith(
+                            color: colors.onInverseSurface,
+                          ),
                         ),
                         const SizedBox(height: AppSpacing.xs),
                         Text(
                           alertOutcome(alert) ?? 'Alert triggered',
-                          style: AppTextStyles.caption.copyWith(color: colors.onInverseSurface),
+                          style: AppTextStyles.caption.copyWith(
+                            color: colors.onInverseSurface,
+                          ),
                         ),
                       ],
                     ),

@@ -16,10 +16,13 @@ class AlertHistoryPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('History')),
       body: BlocBuilder<AlertsCubit, AlertsState>(
-        buildWhen: (previous, current) => previous.triggered != current.triggered,
+        buildWhen: (previous, current) =>
+            previous.triggered != current.triggered,
         builder: (context, state) {
           if (state.triggered.isEmpty) {
-            return const MessageView(message: 'No alerts have been triggered yet.');
+            return const MessageView(
+              message: 'No alerts have been triggered yet.',
+            );
           }
 
           return ListView.builder(

@@ -40,7 +40,11 @@ class PriceAlert extends Equatable {
       throw ArgumentError.value(symbol, 'symbol', 'Must not be empty');
     }
     if (!targetPrice.isFinite || targetPrice <= 0) {
-      throw ArgumentError.value(targetPrice, 'targetPrice', 'Must be a finite price above zero');
+      throw ArgumentError.value(
+        targetPrice,
+        'targetPrice',
+        'Must be a finite price above zero',
+      );
     }
 
     return PriceAlert(
@@ -65,10 +69,18 @@ class PriceAlert extends Equatable {
       throw ArgumentError.value(symbol, 'symbol', 'Must not be empty');
     }
     if (!percentage.isFinite || percentage == 0 || percentage <= -100) {
-      throw ArgumentError.value(percentage, 'percentage', 'Must be a finite non-zero value above -100');
+      throw ArgumentError.value(
+        percentage,
+        'percentage',
+        'Must be a finite non-zero value above -100',
+      );
     }
     if (!referencePrice.isFinite || referencePrice <= 0) {
-      throw ArgumentError.value(referencePrice, 'referencePrice', 'Must be a finite price above zero');
+      throw ArgumentError.value(
+        referencePrice,
+        'referencePrice',
+        'Must be a finite price above zero',
+      );
     }
 
     return PriceAlert(

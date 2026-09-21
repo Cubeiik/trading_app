@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/network/market_data_socket.dart';
 import '../core/theme/app_theme.dart';
 import '../features/alerts/presentation/cubit/alerts_cubit.dart';
 import '../features/instruments/presentation/cubit/instruments_cubit.dart';
@@ -26,6 +27,7 @@ class _AppState extends State<App> {
   late final GoRouter _router = createRouter();
   late final AlertsCubit _alertsCubit;
   late final AlertCoordinator _alertCoordinator;
+  late final AppLifecycleListener _lifecycleListener;
 
   @override
   void initState() {
@@ -37,13 +39,22 @@ class _AppState extends State<App> {
       activeAlerts: () => _alertsCubit.state.active,
       onTriggered: _alertsCubit.onTriggered,
     );
+    _lifecycleListener = AppLifecycleListener(onResume: _reconnectIfDropped);
   }
 
   @override
   void dispose() {
+    _lifecycleListener.dispose();
     unawaited(_alertCoordinator.dispose());
     unawaited(_alertsCubit.close());
     super.dispose();
+  }
+
+  void _reconnectIfDropped() {
+    final quotes = widget.dependencies.quoteRepository;
+    if (quotes.currentStatus != ConnectionStatus.connected) {
+      quotes.reconnectNow();
+    }
   }
 
   @override
@@ -54,7 +65,10 @@ class _AppState extends State<App> {
       providers: [
         BlocProvider(create: (_) => QuotesCubit(dependencies.quoteRepository)),
         BlocProvider(
-          create: (_) => InstrumentsCubit(dependencies.instrumentRepository, dependencies.quoteRepository)..load(),
+          create: (_) => InstrumentsCubit(
+            dependencies.instrumentRepository,
+            dependencies.quoteRepository,
+          )..load(),
         ),
         BlocProvider.value(value: _alertsCubit),
       ],
@@ -62,7 +76,10 @@ class _AppState extends State<App> {
         title: 'Trading App',
         theme: AppTheme.light,
         routerConfig: _router,
-        builder: (context, child) => AlertNotificationHost(router: _router, child: child ?? const SizedBox.shrink()),
+        builder: (context, child) => AlertNotificationHost(
+          router: _router,
+          child: child ?? const SizedBox.shrink(),
+        ),
       ),
     );
   }

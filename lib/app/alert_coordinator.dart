@@ -37,7 +37,11 @@ class AlertCoordinator {
       return;
     }
 
-    final triggered = _evaluator.evaluate(previous: previous, current: quote, alerts: _activeAlerts());
+    final triggered = _evaluator.evaluate(
+      previous: previous,
+      current: quote,
+      alerts: _activeAlerts(),
+    );
 
     for (final alert in triggered) {
       try {

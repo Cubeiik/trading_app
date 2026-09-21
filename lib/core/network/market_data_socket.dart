@@ -72,7 +72,7 @@ class MarketDataSocket {
     _isOpening = true;
 
     try {
-      await _teardownConnection();
+      _teardownConnection();
       _emitStatus(pendingStatus);
 
       await _transport.connect(_uri);
@@ -98,13 +98,17 @@ class MarketDataSocket {
     }
   }
 
-  Future<void> _teardownConnection() async {
+  void _teardownConnection() {
     _stabilityTimer?.cancel();
     _stabilityTimer = null;
 
-    await _messagesSubscription?.cancel();
+    _messagesSubscription?.cancel().ignore();
     _messagesSubscription = null;
 
+    _closeTransport().ignore();
+  }
+
+  Future<void> _closeTransport() async {
     try {
       await _transport.close();
     } catch (error, stackTrace) {

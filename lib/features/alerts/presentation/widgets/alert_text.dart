@@ -32,4 +32,5 @@ String? alertOutcome(PriceAlert alert) {
   return 'Triggered at ${formatPrice(price)} · ${formatTimestamp(at)}';
 }
 
-String formatTimestamp(DateTime value) => _timestampFormat.format(value.toLocal());
+String formatTimestamp(DateTime value) =>
+    _timestampFormat.format(value.toLocal());

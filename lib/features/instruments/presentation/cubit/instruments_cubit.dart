@@ -6,7 +6,8 @@ import '../../data/instrument_repository.dart';
 import 'instruments_state.dart';
 
 class InstrumentsCubit extends Cubit<InstrumentsState> {
-  InstrumentsCubit(this._repository, this._quoteRepository) : super(const InstrumentsState());
+  InstrumentsCubit(this._repository, this._quoteRepository)
+    : super(const InstrumentsState());
 
   final InstrumentRepository _repository;
   final QuoteRepository _quoteRepository;
@@ -16,13 +17,25 @@ class InstrumentsCubit extends Cubit<InstrumentsState> {
 
     try {
       final instruments = await _repository.loadInstruments();
-      emit(InstrumentsState(status: InstrumentsStatus.success, instruments: instruments));
+      emit(
+        InstrumentsState(
+          status: InstrumentsStatus.success,
+          instruments: instruments,
+        ),
+      );
 
       if (instruments.isNotEmpty) {
-        _quoteRepository.subscribeAll(instruments.map((instrument) => instrument.symbol));
+        _quoteRepository.subscribeAll(
+          instruments.map((instrument) => instrument.symbol),
+        );
       }
     } on AppException catch (error) {
-      emit(InstrumentsState(status: InstrumentsStatus.failure, error: error.message));
+      emit(
+        InstrumentsState(
+          status: InstrumentsStatus.failure,
+          error: error.message,
+        ),
+      );
     }
   }
 }

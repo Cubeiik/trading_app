@@ -35,7 +35,9 @@ GoRouter createRouter() {
                 routes: [
                   GoRoute(
                     path: ':symbol',
-                    builder: (context, state) => InstrumentDetailsPage(symbol: state.pathParameters['symbol']!),
+                    builder: (context, state) => InstrumentDetailsPage(
+                      symbol: state.pathParameters['symbol']!,
+                    ),
                   ),
                 ],
               ),
@@ -50,14 +52,21 @@ GoRouter createRouter() {
                   GoRoute(
                     path: 'create',
                     parentNavigatorKey: rootNavigatorKey,
-                    builder: (context, state) => CreateAlertPage(symbol: state.uri.queryParameters['symbol']),
+                    builder: (context, state) => CreateAlertPage(
+                      symbol: state.uri.queryParameters['symbol'],
+                    ),
                   ),
                 ],
               ),
             ],
           ),
           StatefulShellBranch(
-            routes: [GoRoute(path: Routes.history, builder: (context, state) => const AlertHistoryPage())],
+            routes: [
+              GoRoute(
+                path: Routes.history,
+                builder: (context, state) => const AlertHistoryPage(),
+              ),
+            ],
           ),
         ],
       ),

@@ -6,7 +6,12 @@ import '../../domain/price_alert.dart';
 import 'alert_text.dart';
 
 class AlertTile extends StatelessWidget {
-  const AlertTile({required this.alert, required this.onDelete, this.onTap, super.key});
+  const AlertTile({
+    required this.alert,
+    required this.onDelete,
+    this.onTap,
+    super.key,
+  });
 
   final PriceAlert alert;
   final VoidCallback onDelete;
@@ -20,7 +25,10 @@ class AlertTile extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m, vertical: AppSpacing.s),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.m,
+          vertical: AppSpacing.s,
+        ),
         child: Row(
           children: [
             Expanded(
@@ -31,18 +39,27 @@ class AlertTile extends StatelessWidget {
                     children: [
                       Text(alert.symbol, style: AppTextStyles.symbolLabel),
                       const SizedBox(width: AppSpacing.s),
-                      Text(alertCondition(alert), style: AppTextStyles.priceCell),
+                      Text(
+                        alertCondition(alert),
+                        style: AppTextStyles.priceCell,
+                      ),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    outcome ?? origin ?? 'Created ${formatTimestamp(alert.createdAt)}',
+                    outcome ??
+                        origin ??
+                        'Created ${formatTimestamp(alert.createdAt)}',
                     style: AppTextStyles.caption,
                   ),
                 ],
               ),
             ),
-            IconButton(onPressed: onDelete, icon: const Icon(Icons.delete_outline), tooltip: 'Delete alert'),
+            IconButton(
+              onPressed: onDelete,
+              icon: const Icon(Icons.delete_outline),
+              tooltip: 'Delete alert',
+            ),
           ],
         ),
       ),

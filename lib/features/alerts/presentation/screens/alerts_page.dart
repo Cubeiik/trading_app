@@ -26,11 +26,13 @@ class AlertsPage extends StatelessWidget {
           const ConnectionBanner(),
           Expanded(
             child: BlocBuilder<AlertsCubit, AlertsState>(
-              buildWhen: (previous, current) => previous.active != current.active,
+              buildWhen: (previous, current) =>
+                  previous.active != current.active,
               builder: (context, state) {
                 if (state.active.isEmpty) {
                   return const MessageView(
-                    message: 'No active alerts.\nCreate one from an instrument or with the button below.',
+                    message:
+                        'No active alerts.\nCreate one from an instrument or with the button below.',
                   );
                 }
 
@@ -41,8 +43,10 @@ class AlertsPage extends StatelessWidget {
                     return AlertTile(
                       key: ValueKey(alert.id),
                       alert: alert,
-                      onTap: () => context.go(Routes.instrumentDetails(alert.symbol)),
-                      onDelete: () => context.read<AlertsCubit>().delete(alert.id),
+                      onTap: () =>
+                          context.go(Routes.instrumentDetails(alert.symbol)),
+                      onDelete: () =>
+                          context.read<AlertsCubit>().delete(alert.id),
                     );
                   },
                 );

@@ -61,7 +61,7 @@ class _PriceColumn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 72,
+      width: 96,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [

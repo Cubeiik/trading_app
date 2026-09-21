@@ -6,16 +6,23 @@ import '../../domain/price_alert.dart';
 import 'alerts_state.dart';
 
 class AlertsCubit extends Cubit<AlertsState> {
-  AlertsCubit(AlertRepository repository) : _repository = repository, super(_restore(repository));
+  AlertsCubit(AlertRepository repository)
+    : _repository = repository,
+      super(_restore(repository));
 
   final AlertRepository _repository;
 
   static AlertsState _restore(AlertRepository repository) {
     final stored = repository.loadAll();
 
-    final active = stored.where((alert) => alert.isActive).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final active = stored.where((alert) => alert.isActive).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     final triggered = stored.where((alert) => !alert.isActive).toList()
-      ..sort((a, b) => (b.triggeredAt ?? b.createdAt).compareTo(a.triggeredAt ?? a.createdAt));
+      ..sort(
+        (a, b) => (b.triggeredAt ?? b.createdAt).compareTo(
+          a.triggeredAt ?? a.createdAt,
+        ),
+      );
 
     return AlertsState(active: active, triggered: triggered);
   }
@@ -35,7 +42,9 @@ class AlertsCubit extends Cubit<AlertsState> {
       state.copyWith(
         active: state.active.where((alert) => alert.id != id).toList(),
         triggered: state.triggered.where((alert) => alert.id != id).toList(),
-        pendingNotifications: state.pendingNotifications.where((alert) => alert.id != id).toList(),
+        pendingNotifications: state.pendingNotifications
+            .where((alert) => alert.id != id)
+            .toList(),
       ),
     );
 
@@ -62,7 +71,9 @@ class AlertsCubit extends Cubit<AlertsState> {
 
     emit(
       state.copyWith(
-        active: state.active.where((candidate) => candidate.id != alert.id).toList(),
+        active: state.active
+            .where((candidate) => candidate.id != alert.id)
+            .toList(),
         triggered: [fired, ...state.triggered],
         pendingNotifications: [...state.pendingNotifications, fired],
         error: error,
@@ -71,6 +82,12 @@ class AlertsCubit extends Cubit<AlertsState> {
   }
 
   void acknowledge(String id) {
-    emit(state.copyWith(pendingNotifications: state.pendingNotifications.where((alert) => alert.id != id).toList()));
+    emit(
+      state.copyWith(
+        pendingNotifications: state.pendingNotifications
+            .where((alert) => alert.id != id)
+            .toList(),
+      ),
+    );
   }
 }

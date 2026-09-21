@@ -1,7 +1,7 @@
 # IMPLEMENTATION_PLAN.md
 
 **Project:** `trading_app` — Flutter mobile trading / market-data application
-**Status:** Technical specification and staged roadmap. Phase 1 complete; no feature code written yet.
+**Status:** Technical specification and staged roadmap. Phases 1–10 complete; the final UI pass and cleanup remain.
 **This document is the source of truth for the implementation.** It is a guide, not a contract — if reality proves a simpler approach is better, change the plan and note why.
 
 ---
@@ -714,7 +714,7 @@ A hierarchy of network/storage/validation subclasses is not created, because not
 | Failure                            | Behaviour                                                                                                                         |
 | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | Socket cannot connect / drops      | Status → `reconnecting`, banner, backoff retry, last known prices kept. Never a blocking dialog                                   |
-| Malformed message                  | Logged and skipped; connection stays up; not surfaced to the user                                                                 |
+| Malformed message                  | Logged and skipped; connection stays up; not surfaced to the user. A zero, negative or non-finite price counts as malformed      |
 | `instruments.json` missing/invalid | `InstrumentsCubit` failure state with a Retry button — nothing works without it, so this one blocks                               |
 | Empty instrument list              | Empty state, not an error; no subscribe call                                                                                      |
 | Hive open failure                  | Log, delete + recreate the box once; if that fails too, let the launch fail rather than thread a nullable box through the feature |
@@ -739,6 +739,8 @@ Done from the start, because they are free and structural:
 - no parsing, sorting or formatting inside `build()`;
 - quote handling entirely outside widgets.
 
+**Measured in Phase 10:** one tick rebuilds one `BlocSelector` and its two `PriceText`s; the list, the rows and the page rebuild zero times. 5000 ticks across 108 symbols cost ~450 ms in debug. Throttling was therefore not added.
+
 **Not done up front:** throttling/coalescing of quote updates. It is an optimisation, not architecture, and adding a custom stream buffering helper before knowing the real tick rate would be solving an imaginary problem. Phase 10 includes a short verification pass driving `MarketDataSocket` from a fast test double and watching DevTools' rebuild counter; **if** it shows a problem, the fix is small and local — buffer in `QuotesCubit` and emit on a timer — and gets documented in `NOTES.md` with the measurement that justified it.
 
 Also not done without evidence: isolates (frames are tiny; `compute` overhead would likely exceed the gain), immutable-collection packages, custom render objects.
@@ -749,7 +751,7 @@ Also not done without evidence: isolates (frames are tiny; `compute` overhead wo
 
 ## 14. App lifecycle
 
-`AppLifecycleListener` in `App`, delegating to the socket:
+`AppLifecycleListener` in `_AppState`, delegating to the socket through `QuoteRepository`:
 
 
 | Event      | Behaviour                                                                                                                                      |
@@ -1020,13 +1022,20 @@ Dependencies, extra lints, `assets/instruments.json` registered, counter demo re
 
 
 
-### Phase 10 — Edge cases, error paths, performance check
+### Phase 10 — Edge cases, error paths, performance check ✅ DONE
 
 - **Goal:** the app behaves under hostile conditions, and real-time updates are confirmed smooth.
 - **Tasks:** audit every `catch` for silent swallowing; feed garbage frames end to end; exercise Hive failure paths; empty and failed instrument load; verify "Retry now" resets backoff without spawning duplicate loops; `AppLifecycleListener` (§14); then a **short** performance pass — a test double emitting at a high rate, DevTools rebuild counter and frame chart in profile mode, confirm the list does not rebuild wholesale and repeated navigation/reconnects do not grow subscription counts. Add throttling only if the measurement demands it, and record the numbers in `NOTES.md`.
 - **Result:** no crashes under connection loss, bad data or storage failure; documented performance evidence.
 - **Tests:** garbage-frame test; repeated drop/reconnect cycles do not duplicate listeners; storage-failure Cubit test.
 - **Pitfalls:** profiling in debug mode; reconnect storms from overlapping timers; error state that never clears after recovery; optimising without a measurement.
+- **The bug this phase existed to find:** `_teardownConnection()` awaited `_transport.close()` *after* cancelling the message subscription. A `WebSocketChannel` whose connection has already dropped never completes that close, so `_open()` blocked forever with `_isOpening` stuck at `true` — the app sat on "Reconnecting" permanently, with no log and no way back short of a restart. Teardown is now synchronous and the close runs detached with its own `logError`. Reproduced with a scripted transport (reconnect left the socket in `reconnecting` for every elapsed duration) and confirmed fixed by the same script.
+- **Parser hardening:** malformed frames were dropped in silence, contradicting §12's "logged and skipped" — the `FormatException` branch now calls `logError`. Prices are also validated: a `0`, negative, `NaN` or infinite quote used to reach `AlertEvaluator`, where a drop to zero reads as a genuine downward crossing. Nine garbage shapes (non-JSON, truncated JSON, wrong path, `d` not a list, entries that are `null`/numbers/strings, empty symbol, zero and negative prices, missing and non-numeric fields) all yield an empty list, and a garbage frame arriving mid-session leaves the socket `connected` and the next valid frame parsing.
+- **Lifecycle (§14) implemented here:** `AppLifecycleListener` in `_AppState` calls `reconnectNow()` on resume when the status is not `connected`. The OS kills backgrounded sockets silently, and the drop sometimes only surfaces on the next write.
+- **Backoff verified:** 1/2/4/8/16/30/30 s under a fake clock, each retry firing at the second it should and not before. `reconnectNow()` resets the sequence, and so does ten seconds of a stable connection — after a later drop the first retry comes at 1 s, not 30 s. Three drop/reconnect cycles replay exactly the subscribed symbols in one frame and leave exactly one transport listener (a second one would have doubled every quote). Two `reconnectNow()` calls during an in-flight connect still open a single transport.
+- **Performance measured, not assumed.** With the real widget tree and the 108-instrument asset, `debugPrintRebuildDirtyWidgets` says a single tick rebuilds **one `BlocSelector` and two `PriceText`s** — the row's Bid and Ask. `ListView`, `InstrumentTile` and the surrounding page rebuild zero times, and `InstrumentsCubit` emits nothing. 5000 ticks spread over all 108 symbols cost ~450 ms end to end in an unoptimised debug build, which is far more traffic than the feed produces. **No throttling added** — §13's condition for adding it was a measurement showing a problem, and the measurement shows the opposite.
+- **Still manual:** frame timings in profile mode on a device, and the resume-reconnect path, which needs a real backgrounded app.
+- **Cost of having removed `dispose()`:** the performance harness could not shut the socket down, so its process hung after the assertions passed — a pending stability timer and a live transport subscription with no way to cancel them. Fine for the app, which keeps the socket for the whole process; worth knowing before the test suite returns.
 
 ---
 
@@ -1138,7 +1147,7 @@ Nothing here is invented as fact. Each is isolated so that confirming it changes
 | 8   | Heartbeat / ping-pong         | None observed over a live session. If required, add a periodic ping and a pong timeout forcing reconnect — **TODO**                                                                                                                                                                                  | `MarketDataSocket`                      |
 | 9   | Instrument source             | Assumed a bundled asset. An HTTP endpoint would replace the body of `InstrumentRepository` only                                                                                                                                                                                                      | `InstrumentRepository`                  |
 | 10  | `contractType` code meanings  | Unknown; the raw int is preserved and shown as-is                                                                                                                                                                                                                                                    | `Instrument`                            |
-| 11  | Decimal places per instrument | Not provided by the feed. `PriceText` formats everything with two decimals — a deliberate simplification. Low-priced instruments lose precision on screen (`ADAUSD 0.2234` renders as `0.22`) and appear static between ticks; alert thresholds are stored and compared at full precision regardless | `PriceText`                             |
+| 11  | Decimal places per instrument | Not provided by the feed, so precision is derived from the price itself: 2 decimals at 100 and above, then 3, 4, 5, and 6 below 0.1. Two decimals everywhere made sub-dollar instruments look frozen between ticks. Storage and alert comparison were always at full precision                        | `PriceText`                             |
 | 13  | Clock skew                    | "Updated N s ago" compares the server's `t` against the device clock. A badly set device clock would show nonsense; not compensated for                                                                                                                                                              | `Quote.timestamp`                       |
 | 12  | Alert re-arming               | Assumed one-way `ACTIVE → TRIGGERED`, per the brief                                                                                                                                                                                                                                                  | `AlertsCubit`                           |
 

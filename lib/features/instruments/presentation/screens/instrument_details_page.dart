@@ -50,11 +50,15 @@ class _InstrumentDetailsPageState extends State<InstrumentDetailsPage> {
                 switch (state.status) {
                   case InstrumentsStatus.failure:
                     return MessageView(
-                      message: state.error ?? 'Could not load the instrument list.',
+                      message:
+                          state.error ?? 'Could not load the instrument list.',
                       onRetry: () => context.read<InstrumentsCubit>().load(),
                     );
                   case InstrumentsStatus.success:
-                    return MessageView(message: '${widget.symbol} is not on the instrument list.');
+                    return MessageView(
+                      message:
+                          '${widget.symbol} is not on the instrument list.',
+                    );
                   case InstrumentsStatus.initial:
                   case InstrumentsStatus.loading:
                     return const Center(child: CircularProgressIndicator());
@@ -92,7 +96,8 @@ class _Details extends StatelessWidget {
         _DetailRow(label: 'Symbol', value: instrument.symbol),
         const SizedBox(height: AppSpacing.l),
         FilledButton(
-          onPressed: () => context.push('${Routes.createAlert}?symbol=${instrument.symbol}'),
+          onPressed: () =>
+              context.push('${Routes.createAlert}?symbol=${instrument.symbol}'),
           child: const Text('Create alert'),
         ),
       ],
@@ -125,7 +130,9 @@ class _LivePrices extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.s),
           Text(
-            quote == null ? 'Waiting for the first quote' : 'Updated ${_formatAge(quote.timestamp)}',
+            quote == null
+                ? 'Waiting for the first quote'
+                : 'Updated ${_formatAge(quote.timestamp)}',
             style: AppTextStyles.caption,
           ),
         ],
